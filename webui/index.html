@@ -180,7 +180,7 @@
 // Default to the local backend when developing on localhost, otherwise the
 // deployed Railway backend. A `trk_api` localStorage value overrides both.
 const _isLocal = ['localhost', '127.0.0.1', ''].includes(location.hostname);
-const _defaultApi = _isLocal ? 'http://127.0.0.1:8001' : 'https://trekrank.up.railway.app';
+const _defaultApi = _isLocal ? 'http://127.0.0.1:8001' : 'https://trekrank-production.up.railway.app';
 const API_BASE = localStorage.getItem('trk_api') || _defaultApi;
 const API = API_BASE + '/api/v1';
 const MEDIA_BASE = API_BASE;
