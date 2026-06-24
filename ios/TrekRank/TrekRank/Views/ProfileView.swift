@@ -22,7 +22,8 @@ final class ProfileViewModel: ObservableObject {
 struct ProfileView: View {
     @EnvironmentObject var session: SessionStore
     @StateObject private var vm = ProfileViewModel()
-    @State private var showDeleteConfirm = false
+    @State private var showSettings = false
+    @AppStorage(Units.storageKey) private var useMiles = false  // re-render on unit change
 
     var body: some View {
         NavigationStack {
@@ -32,7 +33,6 @@ struct ProfileView: View {
                     statsGrid
                     shareSection
                     badgesSection
-                    dangerZone
                 }
                 .padding()
             }
@@ -40,41 +40,16 @@ struct ProfileView: View {
             .navigationTitle("Profile")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Log out") { session.logout() }
+                    Button { showSettings = true } label: {
+                        Image(systemName: "gearshape.fill").foregroundStyle(TrekTheme.accent)
+                    }
                 }
+            }
+            .sheet(isPresented: $showSettings) {
+                SettingsView().environmentObject(session)
             }
             .task { await session.refreshProfile(); await vm.load() }
-            .alert("Delete account?", isPresented: $showDeleteConfirm) {
-                Button("Cancel", role: .cancel) {}
-                Button("Delete permanently", role: .destructive) {
-                    Task { await session.deleteAccount() }
-                }
-            } message: {
-                Text("This permanently erases your account and all your trips, photos, badges, and stats. This cannot be undone.")
-            }
         }
-    }
-
-    private var dangerZone: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Danger zone").font(.title3.bold()).foregroundStyle(.red)
-            Text("Permanently delete your account and all associated data. This cannot be undone.")
-                .font(.caption).foregroundStyle(.secondary)
-            Button(role: .destructive) {
-                showDeleteConfirm = true
-            } label: {
-                HStack {
-                    if session.isLoading { ProgressView() }
-                    Label("Delete my account", systemImage: "trash")
-                }
-                .frame(maxWidth: .infinity).padding()
-                .background(.red.opacity(0.12)).foregroundStyle(.red)
-                .clipShape(RoundedRectangle(cornerRadius: 14))
-            }
-            .disabled(session.isLoading)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.top, 8)
     }
 
     private var header: some View {
@@ -96,7 +71,8 @@ struct ProfileView: View {
         return LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
             StatCard(value: Double(p?.totalCountries ?? 0), label: "Countries", icon: "globe")
             StatCard(value: Double(p?.totalCities ?? 0), label: "Cities", icon: "building.2")
-            StatCard(value: p?.totalKm ?? 0, suffix: " km", label: "Km traveled", icon: "ruler")
+            StatCard(value: Units.value(km: p?.totalKm ?? 0), suffix: Units.suffix,
+                     label: "Distance", icon: "ruler")
             StatCard(value: Double(p?.totalTrips ?? 0), label: "Trips", icon: "airplane")
             StatCard(value: Double(p?.currentStreak ?? 0), label: "Current streak", icon: "flame")
             StatCard(value: Double(p?.longestStreak ?? 0), label: "Longest streak", icon: "crown")

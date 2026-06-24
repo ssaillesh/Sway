@@ -23,6 +23,7 @@ final class LeaderboardViewModel: ObservableObject {
 
 struct LeaderboardView: View {
     @StateObject private var vm = LeaderboardViewModel()
+    @AppStorage(Units.storageKey) private var useMiles = false  // re-render on unit change
     private let metrics = ["countries", "cities", "km", "trips"]
 
     var body: some View {
@@ -98,7 +99,7 @@ struct LeaderboardRow: View {
     }
 
     private var valueText: String {
-        metric == "km" ? "\(Int(entry.value)) km" : "\(Int(entry.value))"
+        metric == "km" ? Units.format(km: entry.value) : "\(Int(entry.value))"
     }
 
     private var medalColor: Color {

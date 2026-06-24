@@ -9,7 +9,7 @@ from app.models import User
 from app.middleware.auth import get_current_user
 from app.schemas.auth import (
     RegisterRequest, LoginRequest, AppleAuthRequest, RefreshRequest, TokenResponse, AuthUser,
-    ForgotPasswordRequest, ForgotPasswordResponse, ResetPasswordRequest,
+    ForgotPasswordRequest, ForgotPasswordResponse, ResetPasswordRequest, ChangePasswordRequest,
 )
 from app.services.security import (
     hash_password, verify_password, create_access_token, create_refresh_token, decode_token,
@@ -140,6 +140,18 @@ def reset_password(body: ResetPasswordRequest, db: Session = Depends(get_db)):
     user = db.get(User, uuid.UUID(payload["sub"]))
     if not user:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "User not found")
+    user.password_hash = hash_password(body.new_password)
+    db.commit()
+    db.refresh(user)
+    return _tokens(user, is_new=False)
+
+
+@router.post("/change-password", response_model=TokenResponse)
+def change_password(body: ChangePasswordRequest,
+                    user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Change password for a logged-in user (requires the current password)."""
+    if not user.password_hash or not verify_password(body.current_password, user.password_hash):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Current password is incorrect")
     user.password_hash = hash_password(body.new_password)
     db.commit()
     db.refresh(user)

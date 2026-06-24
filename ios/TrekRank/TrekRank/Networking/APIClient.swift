@@ -94,8 +94,31 @@ actor APIClient {
             authorized: false, decode: TokenResponse.self)
     }
 
+    func changePassword(current: String, newPassword: String) async throws -> TokenResponse {
+        struct Body: Encodable { let current_password: String; let new_password: String }
+        return try await request("auth/change-password", method: "POST",
+            body: Body(current_password: current, new_password: newPassword),
+            decode: TokenResponse.self)
+    }
+
     func deleteAccount() async throws {
         _ = try await request("auth/account", method: "DELETE", decode: EmptyResponse.self)
+    }
+
+    func updateProfile(email: String? = nil, displayName: String? = nil,
+                       bio: String? = nil, homeCity: String? = nil,
+                       homeCountry: String? = nil) async throws -> UserProfile {
+        struct Body: Encodable {
+            var email: String?
+            var display_name: String?
+            var bio: String?
+            var home_city: String?
+            var home_country: String?
+        }
+        return try await request("users/me", method: "PATCH",
+            body: Body(email: email, display_name: displayName, bio: bio,
+                       home_city: homeCity, home_country: homeCountry),
+            decode: UserProfile.self)
     }
 
     // MARK: Users

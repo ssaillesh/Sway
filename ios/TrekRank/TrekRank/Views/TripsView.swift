@@ -20,6 +20,7 @@ final class TripsViewModel: ObservableObject {
 struct TripsView: View {
     @StateObject private var vm = TripsViewModel()
     @State private var showAdd = false
+    @AppStorage(Units.storageKey) private var useMiles = false  // re-render on unit change
 
     var body: some View {
         NavigationStack {
@@ -79,7 +80,7 @@ struct TripRow: View {
                 Spacer()
                 VStack(alignment: .trailing) {
                     if let km = trip.distanceKm {
-                        CountUpText(value: km, suffix: " km")
+                        CountUpText(value: Units.value(km: km), suffix: Units.suffix)
                             .font(.subheadline.bold()).foregroundStyle(TrekTheme.accent)
                     } else if trip.status == "processing" {
                         ProgressView().controlSize(.small).tint(TrekTheme.accent)

@@ -1,5 +1,5 @@
 from datetime import date
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, EmailStr, Field
 
 
 class UserPublic(BaseModel):
@@ -23,6 +23,7 @@ class UserProfile(UserPublic):
 
 
 class UserUpdate(BaseModel):
+    email: EmailStr | None = None
     display_name: str | None = Field(default=None, max_length=100)
     bio: str | None = Field(default=None, max_length=300)
     avatar_url: str | None = Field(default=None, max_length=500)

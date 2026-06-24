@@ -39,7 +39,11 @@ def get_me(user: User = Depends(get_current_user)):
 
 @router.patch("/me", response_model=UserProfile)
 def update_me(body: UserUpdate, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    for field, value in body.model_dump(exclude_unset=True).items():
+    data = body.model_dump(exclude_unset=True)
+    if "email" in data and data["email"] and data["email"] != user.email:
+        if db.scalar(select(User.id).where(User.email == data["email"])):
+            raise HTTPException(status.HTTP_409_CONFLICT, "Email already in use")
+    for field, value in data.items():
         setattr(user, field, value)
     db.add(user)
     db.commit()

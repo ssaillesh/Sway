@@ -59,6 +59,39 @@ final class SessionStore: ObservableObject {
         }
     }
 
+    /// Updates the account email. Returns true on success.
+    func updateEmail(_ email: String) async -> Bool {
+        var ok = false
+        await run {
+            self.profile = try await APIClient.shared.updateProfile(email: email)
+            ok = true
+        }
+        return ok
+    }
+
+    /// Updates display name / bio / home location.
+    func updateProfile(displayName: String? = nil, bio: String? = nil,
+                       homeCity: String? = nil, homeCountry: String? = nil) async -> Bool {
+        var ok = false
+        await run {
+            self.profile = try await APIClient.shared.updateProfile(
+                displayName: displayName, bio: bio, homeCity: homeCity, homeCountry: homeCountry)
+            ok = true
+        }
+        return ok
+    }
+
+    /// Changes the password (requires the current one). Returns true on success.
+    func changePassword(current: String, newPassword: String) async -> Bool {
+        var ok = false
+        await run {
+            let resp = try await APIClient.shared.changePassword(current: current, newPassword: newPassword)
+            try await self.apply(resp)
+            ok = true
+        }
+        return ok
+    }
+
     /// Permanently deletes the account and all its data, then signs out.
     func deleteAccount() async {
         await run {
