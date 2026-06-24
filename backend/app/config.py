@@ -1,6 +1,7 @@
 """Application configuration loaded from environment variables."""
 from functools import lru_cache
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -17,6 +18,13 @@ class Settings(BaseSettings):
 
     # Redis (broker + cache + leaderboards + rate limiting)
     redis_url: str = "redis://localhost:6379/0"
+
+    @field_validator("database_url", "redis_url", mode="before")
+    @classmethod
+    def _strip_urls(cls, v: str) -> str:
+        # Env vars pasted via dashboards can carry stray whitespace/newlines,
+        # which corrupt the connection (e.g. db name becomes "railway\n").
+        return v.strip() if isinstance(v, str) else v
 
     # JWT
     jwt_secret: str = "dev-secret-change-me"
