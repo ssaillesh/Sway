@@ -22,6 +22,7 @@ final class ProfileViewModel: ObservableObject {
 struct ProfileView: View {
     @EnvironmentObject var session: SessionStore
     @StateObject private var vm = ProfileViewModel()
+    @State private var showDeleteConfirm = false
 
     var body: some View {
         NavigationStack {
@@ -31,6 +32,7 @@ struct ProfileView: View {
                     statsGrid
                     shareSection
                     badgesSection
+                    dangerZone
                 }
                 .padding()
             }
@@ -41,7 +43,37 @@ struct ProfileView: View {
                 }
             }
             .task { await session.refreshProfile(); await vm.load() }
+            .alert("Delete account?", isPresented: $showDeleteConfirm) {
+                Button("Cancel", role: .cancel) {}
+                Button("Delete permanently", role: .destructive) {
+                    Task { await session.deleteAccount() }
+                }
+            } message: {
+                Text("This permanently erases your account and all your trips, photos, badges, and stats. This cannot be undone.")
+            }
         }
+    }
+
+    private var dangerZone: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Danger zone").font(.title3.bold()).foregroundStyle(.red)
+            Text("Permanently delete your account and all associated data. This cannot be undone.")
+                .font(.caption).foregroundStyle(.secondary)
+            Button(role: .destructive) {
+                showDeleteConfirm = true
+            } label: {
+                HStack {
+                    if session.isLoading { ProgressView() }
+                    Label("Delete my account", systemImage: "trash")
+                }
+                .frame(maxWidth: .infinity).padding()
+                .background(.red.opacity(0.12)).foregroundStyle(.red)
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+            }
+            .disabled(session.isLoading)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.top, 8)
     }
 
     private var header: some View {

@@ -40,6 +40,33 @@ final class SessionStore: ObservableObject {
         }
     }
 
+    /// Requests a password reset. Returns the user-facing message. In production
+    /// the reset link is emailed; the returned token (dev only) is ignored here.
+    func forgotPassword(email: String) async -> String? {
+        var message: String?
+        await run {
+            let resp = try await APIClient.shared.forgotPassword(email: email)
+            message = resp.message
+        }
+        return message
+    }
+
+    /// Completes a reset with the emailed token and logs the user in.
+    func resetPassword(token: String, newPassword: String) async {
+        await run {
+            let resp = try await APIClient.shared.resetPassword(token: token, newPassword: newPassword)
+            try await self.apply(resp)
+        }
+    }
+
+    /// Permanently deletes the account and all its data, then signs out.
+    func deleteAccount() async {
+        await run {
+            try await APIClient.shared.deleteAccount()
+        }
+        if errorMessage == nil { logout() }
+    }
+
     func logout() {
         UserDefaults.standard.removeObject(forKey: tokenKey)
         UserDefaults.standard.removeObject(forKey: refreshKey)

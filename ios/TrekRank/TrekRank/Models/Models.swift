@@ -27,6 +27,18 @@ struct TokenResponse: Codable {
     }
 }
 
+struct ForgotPasswordResponse: Codable {
+    let message: String
+    /// Present only when the backend has no email service configured (dev). In
+    /// production this is nil and the reset token is delivered by email.
+    let resetToken: String?
+
+    enum CodingKeys: String, CodingKey {
+        case message
+        case resetToken = "reset_token"
+    }
+}
+
 // MARK: - Profile / stats
 
 struct UserProfile: Codable, Identifiable {

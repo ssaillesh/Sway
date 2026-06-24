@@ -7,6 +7,7 @@ struct AuthView: View {
     @State private var username = ""
     @State private var displayName = ""
     @State private var password = ""
+    @State private var showResetSheet = false
 
     var body: some View {
         ZStack {
@@ -49,9 +50,21 @@ struct AuthView: View {
                     withAnimation { isRegister.toggle(); session.errorMessage = nil }
                 }
                 .font(.footnote).foregroundStyle(.white.opacity(0.8))
+
+                if !isRegister {
+                    Button("Forgot password?") {
+                        session.errorMessage = nil
+                        showResetSheet = true
+                    }
+                    .font(.footnote).foregroundStyle(TrekTheme.accent)
+                }
                 Spacer()
             }
             .padding(28)
+        }
+        .sheet(isPresented: $showResetSheet) {
+            PasswordResetView(prefillEmail: email)
+                .environmentObject(session)
         }
     }
 
@@ -79,5 +92,89 @@ struct AuthView: View {
         SecureField(label, text: text)
             .padding().background(.white.opacity(0.1))
             .foregroundStyle(.white).clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+}
+
+/// Two-step password reset: request a code by email, then enter the code +
+/// a new password. Works without any website — the code arrives by email.
+struct PasswordResetView: View {
+    @EnvironmentObject var session: SessionStore
+    @Environment(\.dismiss) private var dismiss
+
+    let prefillEmail: String
+    @State private var email = ""
+    @State private var codeSent = false
+    @State private var infoMessage: String?
+    @State private var resetCode = ""
+    @State private var newPassword = ""
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                if !codeSent {
+                    Section("Reset your password") {
+                        TextField("Email", text: $email)
+                            .textInputAutocapitalization(.never).autocorrectionDisabled()
+                            .keyboardType(.emailAddress)
+                    }
+                    Section {
+                        Button {
+                            Task {
+                                if let msg = await session.forgotPassword(email: email) {
+                                    infoMessage = msg
+                                    withAnimation { codeSent = true }
+                                }
+                            }
+                        } label: {
+                            HStack {
+                                if session.isLoading { ProgressView() }
+                                Text("Send reset code")
+                            }
+                        }
+                        .disabled(email.isEmpty || session.isLoading)
+                    } footer: {
+                        Text("We'll email you a reset code if an account exists for that address.")
+                    }
+                } else {
+                    Section {
+                        if let info = infoMessage {
+                            Text(info).font(.footnote).foregroundStyle(.secondary)
+                        }
+                    }
+                    Section("Enter the code from your email") {
+                        TextField("Reset code", text: $resetCode)
+                            .textInputAutocapitalization(.never).autocorrectionDisabled()
+                        SecureField("New password (min 6 chars)", text: $newPassword)
+                    }
+                    Section {
+                        Button {
+                            Task {
+                                await session.resetPassword(token: resetCode.trimmingCharacters(in: .whitespacesAndNewlines),
+                                                            newPassword: newPassword)
+                                if session.isAuthenticated { dismiss() }
+                            }
+                        } label: {
+                            HStack {
+                                if session.isLoading { ProgressView() }
+                                Text("Reset password & sign in")
+                            }
+                        }
+                        .disabled(resetCode.isEmpty || newPassword.count < 6 || session.isLoading)
+                    }
+                }
+
+                if let err = session.errorMessage {
+                    Section { Text(err).font(.footnote).foregroundStyle(.red) }
+                }
+            }
+            .navigationTitle("Forgot password")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { session.errorMessage = nil; dismiss() }
+                }
+            }
+            .onAppear { if email.isEmpty { email = prefillEmail } }
+        }
     }
 }

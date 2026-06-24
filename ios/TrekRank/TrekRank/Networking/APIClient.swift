@@ -81,6 +81,23 @@ actor APIClient {
             body: Body(email: email, password: password), authorized: false, decode: TokenResponse.self)
     }
 
+    func forgotPassword(email: String) async throws -> ForgotPasswordResponse {
+        struct Body: Encodable { let email: String }
+        return try await request("auth/forgot-password", method: "POST",
+            body: Body(email: email), authorized: false, decode: ForgotPasswordResponse.self)
+    }
+
+    func resetPassword(token: String, newPassword: String) async throws -> TokenResponse {
+        struct Body: Encodable { let reset_token: String; let new_password: String }
+        return try await request("auth/reset-password", method: "POST",
+            body: Body(reset_token: token, new_password: newPassword),
+            authorized: false, decode: TokenResponse.self)
+    }
+
+    func deleteAccount() async throws {
+        _ = try await request("auth/account", method: "DELETE", decode: EmptyResponse.self)
+    }
+
     // MARK: Users
 
     func me() async throws -> UserProfile {
