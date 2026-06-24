@@ -15,6 +15,7 @@ from app.services.security import (
     hash_password, verify_password, create_access_token, create_refresh_token, decode_token,
     create_reset_token,
 )
+from app.services.email import email_enabled, send_password_reset
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -118,10 +119,17 @@ def forgot_password(body: ForgotPasswordRequest, db: Session = Depends(get_db)):
     account exists.
     """
     user = db.scalar(select(User).where(User.email == body.email))
-    generic = "If an account exists for that email, a reset token has been issued."
+    generic = "If an account exists for that email, password reset instructions have been sent."
     if not user:
         return ForgotPasswordResponse(message=generic)
-    return ForgotPasswordResponse(message=generic, reset_token=create_reset_token(str(user.id)))
+
+    token = create_reset_token(str(user.id))
+    if email_enabled():
+        send_password_reset(user.email, token)
+        # Don't leak the token in the response once email delivery is on.
+        return ForgotPasswordResponse(message=generic)
+    # Dev fallback: no email configured, return the token directly.
+    return ForgotPasswordResponse(message=generic, reset_token=token)
 
 
 @router.post("/reset-password", response_model=TokenResponse)

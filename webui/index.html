@@ -497,9 +497,32 @@ function timeago(iso){ if(!iso) return ''; const d=new Date(iso); const s=(Date.
   if(s<60)return'just now'; if(s<3600)return Math.floor(s/60)+'m ago'; if(s<86400)return Math.floor(s/3600)+'h ago';
   return Math.floor(s/86400)+'d ago'; }
 
+// ---- complete a reset launched from an email link (?reset_token=...) ----
+async function completeResetFromUrl(){
+  const params = new URLSearchParams(location.search);
+  const token = params.get('reset_token');
+  if (!token) return false;
+  // Clean the token out of the URL so it isn't left in history.
+  history.replaceState({}, '', location.pathname);
+  setAuthMode('login');
+  const err = document.getElementById('authErr'); err.textContent='';
+  const newPw = prompt('Enter a new password for your account (min 6 chars):');
+  if (!newPw){ err.textContent='Password reset cancelled.'; return true; }
+  try {
+    const r = await api('/auth/reset-password', {auth:false, method:'POST', body:{
+      reset_token: token, new_password: newPw
+    }});
+    state.token = r.access_token; state.user = r.user;
+    localStorage.setItem('trk_token', r.access_token);
+    enterApp();
+  } catch(e){ err.textContent = e.message; }
+  return true;
+}
+
 // ---- boot: resume session if token present ----
 (async function(){
   setAuthMode('register');
+  if (await completeResetFromUrl()) return;
   const t = localStorage.getItem('trk_token');
   if (t){ state.token=t; try { const me=await api('/users/me'); state.user=me; enterApp(); }
     catch(e){ localStorage.removeItem('trk_token'); } }

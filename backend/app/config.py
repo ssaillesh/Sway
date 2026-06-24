@@ -40,6 +40,14 @@ class Settings(BaseSettings):
     geocode_user_agent: str = "TrekRank/0.1 (mvp; contact dev@trekrank.app)"
     geocode_cache_ttl: int = 60 * 60 * 24 * 30  # 30 days
 
+    # Email (SendGrid Web API). Leave key blank to disable sending — the
+    # password-reset endpoint then returns the token directly (dev fallback).
+    sendgrid_api_key: str = ""
+    email_from: str = ""  # must be a SendGrid-verified sender (Single Sender or domain)
+    email_from_name: str = "TrekRank"
+    # Where the web UI is hosted; used to build the reset link in emails.
+    frontend_base_url: str = "http://127.0.0.1:8080"
+
     # Rate limiting (requests per window per client)
     rate_limit_requests: int = 120
     rate_limit_window_seconds: int = 60
