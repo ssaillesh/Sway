@@ -474,8 +474,26 @@ async function renderProfile(c){
     <div class="badgegrid">${badges.map(b=>`<div class="badge ${b.earned?'earned':''}" title="${b.description}">
         <div class="ic">${badgeEmoji(b.id)}</div><div class="small" style="font-size:10px">${b.name}</div></div>`).join('')}</div>
     <div style="margin:20px 0"><button class="primary" onclick="makeShareCard()">📸 Generate share card</button></div>
-    <div id="shareOut"></div>`;
+    <div id="shareOut"></div>
+    <h3 style="margin:28px 4px 10px;color:var(--danger)">Danger zone</h3>
+    <div class="card">
+      <div class="small muted" style="margin-bottom:12px">Permanently delete your account and all your trips, photos, badges, and stats. This cannot be undone.</div>
+      <button class="ghost" style="color:var(--danger);border-color:var(--danger)" onclick="deleteAccount()">Delete my account</button>
+      <p id="delErr" class="small" style="color:var(--danger);margin:10px 0 0"></p>
+    </div>`;
   c.innerHTML = html;
+}
+
+async function deleteAccount(){
+  const err = document.getElementById('delErr'); if (err) err.textContent='';
+  if (!confirm('Permanently delete your account? This erases all your trips, photos, badges, and stats and cannot be undone.')) return;
+  const typed = prompt('This is permanent. Type DELETE to confirm:');
+  if (typed !== 'DELETE'){ if (err) err.textContent='Deletion cancelled.'; return; }
+  try {
+    await api('/auth/account', {method:'DELETE'});
+    alert('Your account has been permanently deleted.');
+    logout();
+  } catch(e){ if (err) err.textContent = e.message; }
 }
 async function makeShareCard(){
   const out=document.getElementById('shareOut'); out.innerHTML='<div class="empty"><span class="spin"></span> Rendering 1080×1920 card…</div>';
