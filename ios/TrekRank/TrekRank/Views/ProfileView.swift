@@ -105,8 +105,16 @@ struct ProfileView: View {
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
                 ForEach(vm.badges) { badge in
                     HStack {
-                        Image(systemName: badge.earned ? "rosette" : "lock.fill")
-                            .foregroundStyle(badge.earned ? TrekTheme.accent : Color.secondary)
+                        Group {
+                            if let emoji = badge.emoji, !emoji.isEmpty {
+                                Text(emoji).font(.title2)
+                            } else {
+                                Image(systemName: badge.earned ? "rosette" : "lock.fill")
+                                    .foregroundStyle(badge.earned ? TrekTheme.accent : Color.secondary)
+                            }
+                        }
+                        .frame(width: 30)
+                        .grayscale(badge.earned ? 0 : 1)   // locked badges look muted
                         VStack(alignment: .leading) {
                             Text(badge.name).font(.subheadline.bold())
                             Text(badge.description).font(.caption2).foregroundStyle(.secondary)

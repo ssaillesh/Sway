@@ -14,7 +14,7 @@ router = APIRouter(prefix="/badges", tags=["badges"])
 def list_badges(db: Session = Depends(get_db)):
     badges = db.execute(select(Badge).order_by(Badge.category, Badge.id)).scalars().all()
     return [
-        BadgeOut(id=b.id, name=b.name, description=b.description, icon_url=b.icon_url,
+        BadgeOut(id=b.id, name=b.name, description=b.description, icon_url=b.icon_url, emoji=b.emoji,
                  category=b.category, requirement=b.requirement)
         for b in badges
     ]
@@ -28,7 +28,7 @@ def my_badges(user: User = Depends(get_current_user), db: Session = Depends(get_
     }
     badges = db.execute(select(Badge)).scalars().all()
     return [
-        BadgeOut(id=b.id, name=b.name, description=b.description, icon_url=b.icon_url,
+        BadgeOut(id=b.id, name=b.name, description=b.description, icon_url=b.icon_url, emoji=b.emoji,
                  category=b.category, requirement=b.requirement,
                  earned=b.id in earned,
                  earned_at=earned[b.id].earned_at if b.id in earned else None)
@@ -44,5 +44,5 @@ def badge_detail(badge_id: str, db: Session = Depends(get_db)):
     earned_count = db.scalar(
         select(func.count()).select_from(UserBadge).where(UserBadge.badge_id == b.id)
     ) or 0
-    return BadgeOut(id=b.id, name=b.name, description=b.description, icon_url=b.icon_url,
+    return BadgeOut(id=b.id, name=b.name, description=b.description, icon_url=b.icon_url, emoji=b.emoji,
                     category=b.category, requirement={**b.requirement, "earned_by": int(earned_count)})

@@ -74,6 +74,7 @@ class BadgeOut(BaseModel):
     name: str
     description: str
     icon_url: str | None = None
+    emoji: str | None = None
     category: str
     requirement: dict
     earned: bool = False

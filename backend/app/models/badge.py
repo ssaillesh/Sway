@@ -15,6 +15,8 @@ class Badge(Base):
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     description: Mapped[str] = mapped_column(String(300), nullable=False)
     icon_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    # Emoji shown as the badge's icon in the apps (e.g. "🗺️", "✈️").
+    emoji: Mapped[str | None] = mapped_column(String(16), nullable=True)
     # milestone | streak | special | continent | transport
     category: Mapped[str] = mapped_column(String(50), nullable=False)
     requirement: Mapped[dict] = mapped_column(JSONB, nullable=False)

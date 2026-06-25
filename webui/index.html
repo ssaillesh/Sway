@@ -472,7 +472,7 @@ async function renderProfile(c){
     ${stats.continents_visited && stats.continents_visited.length ? `<div class="card"><div class="small muted">Continents</div>${stats.continents_visited.map(x=>`<span class="pill" style="margin:4px 4px 0 0">${x}</span>`).join('')}</div>`:''}
     <h3 style="margin:18px 4px 10px">Badges <span class="muted small">${earned}/${badges.length}</span></h3>
     <div class="badgegrid">${badges.map(b=>`<div class="badge ${b.earned?'earned':''}" title="${b.description}">
-        <div class="ic">${badgeEmoji(b.id)}</div><div class="small" style="font-size:10px">${b.name}</div></div>`).join('')}</div>
+        <div class="ic">${b.emoji||badgeEmoji(b.id)}</div><div class="small" style="font-size:10px">${b.name}</div></div>`).join('')}</div>
     <div style="margin:20px 0"><button class="primary" onclick="makeShareCard()">📸 Generate share card</button></div>
     <div id="shareOut"></div>
     <h3 style="margin:28px 4px 10px;color:var(--danger)">Danger zone</h3>

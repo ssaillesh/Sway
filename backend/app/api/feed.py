@@ -69,7 +69,9 @@ def friends_feed(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    ids = friend_ids(db, user.id)
+    # Home feed = the user's own activity (their trips + earned badges) plus
+    # their friends', newest first — so achievements show up on their own feed.
+    ids = friend_ids(db, user.id) + [user.id]
     return _paginate(db, ids, cursor, limit)
 
 

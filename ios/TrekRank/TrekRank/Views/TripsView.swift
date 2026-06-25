@@ -1,16 +1,27 @@
 import SwiftUI
 
+/// A just-earned achievement to celebrate (one or more badges unlocked at once).
+struct Celebration: Identifiable {
+    let id = UUID()
+    let badges: [Badge]
+}
+
 @MainActor
 final class TripsViewModel: ObservableObject {
     @Published var trips: [Trip] = []
     @Published var loading = false
+    @Published var celebration: Celebration?
 
     private var pollTask: Task<Void, Never>?
+    /// Earned badge IDs as of the last sync; nil until the first sync so we
+    /// don't "celebrate" the badges the user already had on launch.
+    private var knownEarnedIDs: Set<String>?
 
     func load() async {
         loading = true
         if let list = try? await APIClient.shared.trips() { trips = list.items }
         loading = false
+        await syncBadges()
         schedulePollIfNeeded()
     }
 
@@ -27,9 +38,27 @@ final class TripsViewModel: ObservableObject {
                 try? await Task.sleep(nanoseconds: 1_200_000_000)
                 guard let self, !Task.isCancelled else { return }
                 if let list = try? await APIClient.shared.trips() { self.trips = list.items }
-                if !self.trips.contains(where: { $0.status == "processing" }) { return }
+                if !self.trips.contains(where: { $0.status == "processing" }) {
+                    await self.syncBadges()   // trip finished → maybe a new achievement
+                    return
+                }
             }
         }
+    }
+
+    /// Fetch the badge catalog and, if any newly-earned badge appeared since the
+    /// last sync, queue a celebration. The first call only establishes a
+    /// baseline (no celebration for pre-existing badges).
+    private func syncBadges() async {
+        guard let badges = try? await APIClient.shared.badges() else { return }
+        let earned = Set(badges.filter { $0.earned }.map { $0.id })
+        if let known = knownEarnedIDs {
+            let newIDs = earned.subtracting(known)
+            if !newIDs.isEmpty {
+                celebration = Celebration(badges: badges.filter { newIDs.contains($0.id) })
+            }
+        }
+        knownEarnedIDs = earned
     }
 
     func delete(_ trip: Trip) async {
@@ -40,6 +69,8 @@ final class TripsViewModel: ObservableObject {
 }
 
 struct TripsView: View {
+    var goToFeed: () -> Void = {}
+
     @StateObject private var vm = TripsViewModel()
     @State private var showAdd = false
     @AppStorage(Units.storageKey) private var useMiles = false  // re-render on unit change
@@ -76,9 +107,77 @@ struct TripsView: View {
             .sheet(isPresented: $showAdd) {
                 AddTripView { await vm.load() }
             }
+            .sheet(item: $vm.celebration) { celebration in
+                AchievementView(badges: celebration.badges) {
+                    vm.celebration = nil
+                    goToFeed()
+                } onDismiss: {
+                    vm.celebration = nil
+                }
+                .presentationDetents([.height(440)])
+            }
             .refreshable { await vm.load() }
             .task { await vm.load() }
         }
+    }
+}
+
+/// Celebratory popup shown when the user unlocks one or more badges by logging a
+/// trip. The achievement is already on their feed, so the primary action takes
+/// them there to see/share it.
+struct AchievementView: View {
+    let badges: [Badge]
+    var onViewFeed: () -> Void
+    var onDismiss: () -> Void
+
+    @State private var pop = false
+
+    private var hero: Badge? { badges.first }
+
+    var body: some View {
+        VStack(spacing: 18) {
+            Spacer(minLength: 8)
+
+            Text(hero?.emoji ?? "🏅")
+                .font(.system(size: 96))
+                .scaleEffect(pop ? 1 : 0.4)
+                .rotationEffect(.degrees(pop ? 0 : -25))
+                .animation(.spring(response: 0.5, dampingFraction: 0.55), value: pop)
+
+            Text("Achievement Unlocked!")
+                .font(.title3.bold())
+                .foregroundStyle(TrekTheme.accent)
+
+            Text(hero?.name ?? "New badge")
+                .font(.title.bold())
+            if let desc = hero?.description {
+                Text(desc)
+                    .font(.subheadline).foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+            if badges.count > 1 {
+                Text("+ \(badges.count - 1) more achievement\(badges.count - 1 == 1 ? "" : "s")")
+                    .font(.caption.bold())
+                    .padding(.horizontal, 12).padding(.vertical, 6)
+                    .background(TrekTheme.accent.opacity(0.15), in: Capsule())
+            }
+
+            Spacer(minLength: 4)
+
+            VStack(spacing: 10) {
+                Button { onViewFeed() } label: {
+                    Label("See it on your feed", systemImage: "list.bullet.rectangle")
+                }
+                .buttonStyle(NeonButtonStyle())
+
+                Button("Maybe later") { onDismiss() }
+                    .font(.subheadline).foregroundStyle(.secondary)
+            }
+        }
+        .padding(28)
+        .frame(maxWidth: .infinity)
+        .background(ScreenBackground())
+        .onAppear { pop = true }
     }
 }
 

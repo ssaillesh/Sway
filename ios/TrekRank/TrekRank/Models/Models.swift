@@ -293,11 +293,12 @@ struct Badge: Codable, Identifiable {
     let name: String
     let description: String
     let category: String
+    let emoji: String?
     var earned: Bool
     var earnedAt: String?
 
     enum CodingKeys: String, CodingKey {
-        case id, name, description, category, earned
+        case id, name, description, category, emoji, earned
         case earnedAt = "earned_at"
     }
 }
