@@ -1,12 +1,14 @@
 import SwiftUI
 
 enum FeedScope: String, CaseIterable { case posts = "Posts", people = "People" }
+enum FeedSource: String, CaseIterable { case discover = "Discover", following = "Following" }
 
 @MainActor
 final class FeedViewModel: ObservableObject {
     @Published var items: [FeedItem] = []
     @Published var loading = false
     @Published var error: String?
+    @Published var source: FeedSource = .discover   // default to a lively feed
 
     // People search
     @Published var people: [LeaderboardUser] = []
@@ -23,7 +25,12 @@ final class FeedViewModel: ObservableObject {
 
     func load() async {
         loading = true; error = nil
-        do { items = try await APIClient.shared.feed().items }
+        do {
+            let resp = source == .following
+                ? try await APIClient.shared.feed()
+                : try await APIClient.shared.discoverFeed()
+            items = resp.items
+        }
         catch { self.error = (error as? APIError)?.errorDescription ?? error.localizedDescription }
         loading = false
         await syncBadges()
@@ -109,6 +116,11 @@ struct FeedView: View {
                     if scope == .people {
                         peopleResults
                     } else {
+                        Picker("Source", selection: $vm.source) {
+                            ForEach(FeedSource.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+                        }
+                        .pickerStyle(.segmented)
+                        .onChange(of: vm.source) { _, _ in Task { await vm.load() } }
                         postsResults
                     }
                 }

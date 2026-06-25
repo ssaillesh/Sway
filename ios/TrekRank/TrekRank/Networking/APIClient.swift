@@ -195,6 +195,10 @@ actor APIClient {
         try await request("feed", decode: FeedResponse.self)
     }
 
+    func discoverFeed() async throws -> FeedResponse {
+        try await request("feed/discover", decode: FeedResponse.self)
+    }
+
     func recommend(text: String, city: String?, country: String?) async throws {
         struct Body: Encodable { let text: String; let city: String?; let country: String? }
         _ = try await request("feed/recommend", method: "POST",

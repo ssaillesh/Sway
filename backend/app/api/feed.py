@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -79,6 +79,27 @@ def friends_feed(
     # their friends', newest first — so achievements show up on their own feed.
     ids = friend_ids(db, user.id) + [user.id]
     return _paginate(db, ids, cursor, limit)
+
+
+@router.get("/discover", response_model=FeedResponse)
+def discover_feed(
+    cursor: str | None = Query(default=None),
+    limit: int = Query(default=30, le=50),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Recent travel + recommendations from everyone (not just friends), so the
+    feed is lively even before you've added anyone."""
+    # Randomised so each refresh surfaces a varied mix of people (an "explore"
+    # feed) rather than one user's batch of trips clustered together.
+    rows = db.execute(
+        select(ActivityFeed)
+        .where(ActivityFeed.user_id != user.id,
+               ActivityFeed.event_type.in_(["new_trip", "recommendation"]))
+        .order_by(func.random())
+        .limit(limit)
+    ).scalars().all()
+    return FeedResponse(items=_render(db, rows, {}), next_cursor=None)
 
 
 @router.post("/recommend", response_model=FeedItem, status_code=201)
