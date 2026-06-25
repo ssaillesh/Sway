@@ -98,11 +98,13 @@ struct AchievementView: View {
         VStack(spacing: 18) {
             Spacer(minLength: 8)
 
-            Text(hero?.emoji ?? "🏅")
-                .font(.system(size: 96))
-                .scaleEffect(pop ? 1 : 0.4)
-                .rotationEffect(.degrees(pop ? 0 : -25))
-                .animation(.spring(response: 0.5, dampingFraction: 0.55), value: pop)
+            Group {
+                if let hero { BadgeMedallion(badge: hero, size: 110) }
+                else { Image(systemName: "rosette").font(.system(size: 90)).foregroundStyle(TrekTheme.accent) }
+            }
+            .scaleEffect(pop ? 1 : 0.4)
+            .rotationEffect(.degrees(pop ? 0 : -25))
+            .animation(.spring(response: 0.5, dampingFraction: 0.55), value: pop)
 
             Text("Achievement Unlocked!")
                 .font(.title3.bold())

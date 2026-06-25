@@ -268,10 +268,7 @@ struct AchievementTile: View {
 
     var body: some View {
         VStack(spacing: 6) {
-            Text(badge.emoji ?? "🏅")
-                .font(.system(size: 34))
-                .grayscale(badge.earned ? 0 : 1)
-                .opacity(badge.earned ? 1 : 0.45)
+            BadgeMedallion(badge: badge, size: 46)
             Text(badge.name)
                 .font(.caption2).multilineTextAlignment(.center).lineLimit(2)
                 .foregroundStyle(badge.earned ? .primary : .secondary)

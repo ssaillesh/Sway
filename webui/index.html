@@ -163,17 +163,13 @@
   .rank-item .em{font-size:26px;}
   .rank-item .nm{font-weight:800; font-size:18px;}
   .rank-item .mi{font-size:13px; color:var(--muted2); font-weight:600;}
-  .rank-badge{display:grid; place-items:center;}
-  .rank-orb{width:min(340px,72vw); aspect-ratio:1; border-radius:50%; display:grid; place-items:center;
-    background:radial-gradient(circle at 35% 30%,rgba(94,235,212,.35),rgba(115,140,255,.12) 60%,transparent);
-    border:1px solid var(--card-brd); position:relative; box-shadow:var(--shadow);}
-  .rank-orb::after{content:""; position:absolute; inset:-2px; border-radius:50%;
-    background:conic-gradient(from 0deg,var(--accent),transparent 40%,var(--accent2),transparent 80%,var(--accent));
-    -webkit-mask:radial-gradient(closest-side,transparent 78%,#000 80%); mask:radial-gradient(closest-side,transparent 78%,#000 80%);
-    animation:spin 9s linear infinite; opacity:.7;}
-  @keyframes spin{to{transform:rotate(360deg);}}
-  .rank-orb .em{font-size:84px;}
-  .rank-orb .lbl{position:absolute; bottom:18%; font-weight:800; font-size:22px;}
+  .rank-badge{display:flex; flex-direction:column; align-items:center; gap:20px; position:relative;}
+  .rank-badge::before{content:""; position:absolute; width:min(360px,76vw); aspect-ratio:1; top:-6%;
+    border-radius:50%; background:radial-gradient(circle at 40% 35%,rgba(94,235,212,.3),rgba(115,140,255,.12) 55%,transparent 72%);
+    filter:blur(8px); z-index:0;}
+  .rank-coin-wrap{position:relative; z-index:1;}
+  .rank-coin-label{font-weight:850; font-size:24px; letter-spacing:-.02em; z-index:1;}
+  .rank-coin-hint{font-size:12px; color:var(--muted2); font-weight:600; margin-top:-12px; z-index:1;}
 
   /* ---------- badges ---------- */
   .badge-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:16px;}
@@ -183,6 +179,10 @@
   .bcard:hover{transform:translateY(-6px); border-color:rgba(94,235,212,.5);
     box-shadow:0 22px 50px rgba(94,235,212,.18);}
   .bcard .em{font-size:42px; filter:drop-shadow(0 6px 16px rgba(0,0,0,.5)); display:block; margin-bottom:10px;}
+  .medal{width:66px; height:66px; display:block; margin:0 auto 12px; filter:drop-shadow(0 8px 18px rgba(0,0,0,.45));
+    transition:transform .35s cubic-bezier(.2,.8,.2,1);}
+  .bcard:hover .medal{transform:rotate(-5deg) scale(1.07);}
+  .pass-medal .medal{width:78px; height:78px;}
   .bcard .nm{font-weight:800; font-size:15px;}
   .bcard .ds{font-size:12px; color:var(--muted2); margin-top:4px;}
   .bcard .shine{position:absolute; inset:0; border-radius:18px; pointer-events:none;
@@ -192,7 +192,48 @@
   .more-pill{display:inline-block; padding:13px 26px; border-radius:999px; font-weight:700; font-size:15px;
     color:var(--accent); border:1px solid rgba(94,235,212,.4); background:rgba(94,235,212,.08);
     transition:background .25s, transform .25s;}
-  .more-pill:hover{background:rgba(94,235,212,.16); transform:translateY(-2px);}
+  .more-pill:hover{background:rgba(94,235,212,.16); transform:translatey(-2px);}
+
+  /* ---------- true 3D metallic coins (grab & spin) ---------- */
+  .coin3d{width:var(--cs,108px); height:var(--cs,108px); margin:0 auto 12px; perspective:680px;
+    filter:drop-shadow(0 calc(var(--cs,108px)*.08) calc(var(--cs,108px)*.06) rgba(0,0,0,.5));}
+  .coin{position:relative; width:100%; height:100%; transform-style:preserve-3d; cursor:grab;
+    touch-action:none; will-change:transform; transform:rotateX(10deg) rotateY(-14deg);
+    transition:transform .6s cubic-bezier(.4,.05,.2,1);}
+  .coin.spin{transition:none; cursor:grabbing;}
+  /* metal faces, clipped to the shape, pushed to the front/back of the solid */
+  .coin-face{position:absolute; inset:0; clip-path:var(--shape,circle(49%)); background:var(--metal);
+    -webkit-backface-visibility:hidden; backface-visibility:hidden;
+    box-shadow:inset 0 7px 13px rgba(255,255,255,.6), inset 0 -13px 18px rgba(0,0,0,.5),
+      inset 0 0 0 3px var(--rim,#444), inset 0 0 0 6px rgba(255,255,255,.14);}
+  .coin-face.front{transform:translateZ(calc(var(--thick,13px)/2));}
+  .coin-face.back{transform:rotateY(180deg) translateZ(calc(var(--thick,13px)/2));}
+  .coin-face::after{content:""; position:absolute; inset:0; clip-path:inherit; pointer-events:none;
+    background:linear-gradient(125deg,transparent 40%,rgba(255,255,255,.45) 47%,transparent 55%);}
+  /* extruded body: many stacked shape slices fill the depth → a solid milled edge */
+  .coin-body{position:absolute; inset:0; transform-style:preserve-3d;}
+  .coin-body .slice{position:absolute; inset:0; clip-path:var(--shape,circle(49%)); background:var(--rim,#444);}
+  /* content rides just above each face, unclipped so text/art never gets cut */
+  .coin-content{position:absolute; inset:0; display:grid; place-items:center; pointer-events:none;
+    -webkit-backface-visibility:hidden; backface-visibility:hidden;}
+  .coin-content.front{transform:translateZ(calc(var(--thick,13px)/2 + .5px));}
+  .coin-content.back{transform:rotateY(180deg) translateZ(calc(var(--thick,13px)/2 + .5px));}
+  .engrave{width:54%; height:54%; overflow:visible;}
+  .engrave g{fill:currentColor; stroke:none;}
+  .engrave .rl{color:rgba(255,255,255,.55); transform:translate(-.5px,-.7px);}
+  .engrave .rd{color:rgba(0,0,0,.46);}
+  .back-content{text-align:center; padding:0 7%; color:rgba(12,12,14,.72); max-width:86%;}
+  .back-title{font-size:calc(var(--cs,108px)*.142); font-weight:850; line-height:1; letter-spacing:-.02em;}
+  .back-sub{font-size:calc(var(--cs,108px)*.082); font-weight:700; margin-top:5px; opacity:.82; line-height:1.05;}
+  .back-verify{font-size:calc(var(--cs,108px)*.07); font-weight:800; letter-spacing:.1em; margin-top:8px; opacity:.65;}
+  /* narrow shapes have less room — shrink text and drop the VERIFIED line */
+  .shape-star .back-content{max-width:58%;}
+  .shape-star .back-title{font-size:calc(var(--cs,108px)*.115);}
+  .shape-star .back-sub{font-size:calc(var(--cs,108px)*.07); margin-top:3px;}
+  .shape-gem .back-content{max-width:64%;}
+  .shape-banner .back-content{max-width:76%; padding-bottom:14%;}
+  .shape-star .back-verify, .shape-gem .back-verify, .shape-banner .back-verify{display:none;}
+  .coin-hint{font-size:12px; color:var(--muted2); font-weight:600; text-align:center;}
 
   /* ---------- boarding pass flip ---------- */
   .pass-wrap{display:flex; flex-direction:column; align-items:center; gap:14px; margin-bottom:54px; perspective:1600px;}
@@ -472,7 +513,9 @@
           </div>
         </div>
         <div class="rank-badge">
-          <div class="rank-orb"><span class="em" id="orbEm">🧭</span><span class="lbl" id="orbLbl">Explorer</span></div>
+          <div class="rank-coin-wrap" id="rankCoin"></div>
+          <div class="rank-coin-label" id="orbLbl">Explorer</div>
+          <div class="rank-coin-hint">Tap the coin to flip it</div>
         </div>
       </div>
     </div>
@@ -717,45 +760,165 @@ const cio = new IntersectionObserver((es)=>es.forEach(e=>{ if(e.isIntersecting){
   animateCount(counter, +counter.dataset.target); cio.disconnect(); }}), {threshold:.5});
 cio.observe(counter);
 
-/* ---------- badges — a curated taste of 50+ (fun, short) ---------- */
+/* =================== 3D metallic flip-coin system =================== */
+/* Embossed relief scenes (filled + stroked, all in currentColor so they emboss). */
+const SC = {
+  plane:'<path d="M6 41h28" fill="none" stroke="currentColor" stroke-width="2.4" stroke-dasharray="3 3" stroke-linecap="round"/><path d="M41 7c-1.6-1-4 .4-5.6 2L28 16l-9-2.6-2 2 6.5 4.6-4.4 4-4-1-1.8 1.9 5 3.4 3.4 5 1.9-1.8-1-4 4-4.4 4.6 6.5 2-2-2.6-9 6.6-7.4c1.6-1.6 3-4 2-5.6z"/>',
+  globe:'<circle cx="20" cy="24" r="13" fill="none" stroke="currentColor" stroke-width="2.6"/><path d="M7 24h26M20 11c6 4 6 22 0 26M20 11c-6 4-6 22 0 26" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M35 13c3.3 0 6 2.7 6 6 0 4.5-6 11-6 11s-6-6.5-6-11c0-3.3 2.7-6 6-6z"/>',
+  trophy:'<path d="M15 8h18v7a9 9 0 0 1-18 0z"/><path d="M15 10h-4a4 4 0 0 0 4.5 6M33 10h4a4 4 0 0 1-4.5 6" fill="none" stroke="currentColor" stroke-width="2.6"/><rect x="22" y="25" width="4" height="6"/><rect x="15" y="31" width="18" height="4" rx="1"/><path d="M24 3l1.4 2.9 3.2.5-2.3 2.2.5 3.2L24 12.9l-2.8 1.4.5-3.2-2.3-2.2 3.2-.5z"/>',
+  orbit:'<circle cx="24" cy="24" r="11" fill="none" stroke="currentColor" stroke-width="2.6"/><path d="M13 24h22M24 13c6 4 6 18 0 22M24 13c-6 4-6 18 0 22" fill="none" stroke="currentColor" stroke-width="1.8"/><ellipse cx="24" cy="24" rx="19" ry="7.5" fill="none" stroke="currentColor" stroke-width="1.8" transform="rotate(-24 24 24)"/><path d="M41 15l3.4 1.7-3.6 1.7.7-1.7z"/>',
+  train:'<rect x="12" y="9" width="24" height="20" rx="4" fill="none" stroke="currentColor" stroke-width="2.6"/><rect x="15.5" y="13" width="6" height="6" rx="1"/><rect x="26.5" y="13" width="6" height="6" rx="1"/><path d="M14 25h20" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="18" cy="33" r="2.3"/><circle cx="30" cy="33" r="2.3"/><path d="M8 39h32M16 35l-3 5M32 35l3 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+  cityhop:'<path d="M4 43h40" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><rect x="6" y="26" width="12" height="17" rx="1"/><rect x="31" y="20" width="12" height="23" rx="1"/><path d="M9 22 Q24.5 0 40 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-dasharray="2.5 3" stroke-linecap="round"/><circle cx="24" cy="7" r="3.2"/><path d="M24 10.5 L21 17 M24 10.5 L28 14" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"/><path d="M21 17 L17 20 M21 17 L24.5 21.5" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"/>',
+  polar:'<path d="M4 41 L17 17 L25 31 L31 21 L44 41 Z"/><circle cx="37" cy="11" r="4"/><path d="M24 4v4M19 7l2 3M29 7l-2 3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>',
+  downunder:'<circle cx="20" cy="19" r="8"/><path d="M6 33h36M11 39h26" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><path d="M33 9c-4 1-6 5-5 9 .6-3 3-5 6-5-2-1-3-3-1-4z"/>',
+  backpack:'<rect x="14" y="14" width="20" height="28" rx="6" fill="none" stroke="currentColor" stroke-width="2.8"/><path d="M19 14c0-5 10-5 10 0" fill="none" stroke="currentColor" stroke-width="2.4"/><rect x="18" y="26" width="12" height="12" rx="3" fill="none" stroke="currentColor" stroke-width="2.4"/><path d="M24 19v4" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>',
+  crown:'<path d="M9 35 L7 14 l9.5 8 L24 8 l7.5 14 L41 14 l-2 21 z"/><rect x="9" y="36" width="30" height="4.5" rx="1"/><circle cx="7" cy="13" r="2"/><circle cx="41" cy="13" r="2"/><circle cx="24" cy="6" r="2.2"/>',
+  compass:'<circle cx="24" cy="24" r="16" fill="none" stroke="currentColor" stroke-width="2.6"/><polygon points="24 11 28 24 24 37 20 24"/><circle cx="24" cy="24" r="2.2"/>',
+  map:'<path d="M8 12 L18 8 L30 12 L40 8 V36 L30 40 L18 36 L8 40 Z" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"/><path d="M18 8v28M30 12v28" fill="none" stroke="currentColor" stroke-width="1.8"/>',
+  flame:'<path d="M24 5c2.5 7 9 8 9 16a9 9 0 0 1-18 0c0-3.5 1.2-5.6 2.4-6.6 1 3.4 3.2 3.4 3.2 1 0-3.4 0-6.6 3.4-10.4z"/>',
+  coffee:'<path d="M12 19h20v9a10 10 0 0 1-20 0z"/><path d="M32 20h3.5a4.5 4.5 0 0 1 0 9H30" fill="none" stroke="currentColor" stroke-width="2.6"/><rect x="9" y="38" width="26" height="3.5" rx="1.5"/><path d="M18 7c-2 2.4 0 4 0 6.5M24 5c-2 2.4 0 4 0 6.5M30 7c-2 2.4 0 4 0 6.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+  moon:'<path d="M31 7a15 15 0 1 0 9 25A12 12 0 0 1 31 7z"/><path d="M15 11l1.2 3.4 3.4 1.2-3.4 1.2L15 20l-1.2-3.4-3.4-1.2 3.4-1.2z"/>',
+  flag:'<path d="M12 6v36" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"/><path d="M12 8h24l-5 6 5 6H12z"/>',
+};
+const METALS = {
+  gold:    {bg:'conic-gradient(from 215deg,#7a5b12,#ffe9a3,#d4af37,#fff6d5,#c9a52f,#7a5b12,#ffe39a,#d4af37,#7a5b12)', rim:'#5c4310'},
+  silver:  {bg:'conic-gradient(from 215deg,#5f6b7a,#f2f6fb,#aeb9c8,#ffffff,#94a0b0,#5f6b7a,#e3e9f1,#aeb9c8,#5f6b7a)', rim:'#46505c'},
+  bronze:  {bg:'conic-gradient(from 215deg,#5a3413,#eaa869,#c87f3a,#ffd9a8,#a8682c,#5a3413,#df9e5e,#c87f3a,#5a3413)', rim:'#3f250d'},
+  copper:  {bg:'conic-gradient(from 215deg,#6e2c12,#ff9e6b,#d6603a,#ffc8a6,#b04a26,#6e2c12,#ef8a58,#d6603a,#6e2c12)', rim:'#4d1f0d'},
+  steel:   {bg:'conic-gradient(from 215deg,#363f4d,#9fb1c6,#5d6d82,#cdd9e8,#525f72,#363f4d,#8ea1b8,#5d6d82,#363f4d)', rim:'#252c36'},
+  emerald: {bg:'conic-gradient(from 215deg,#0c5a42,#79efc2,#19a87c,#caffee,#138a66,#0c5a42,#6ae8b6,#19a87c,#0c5a42)', rim:'#083a2c'},
+  sapphire:{bg:'conic-gradient(from 215deg,#192a7a,#8aa6ff,#3f57cf,#cdd9ff,#314ac0,#192a7a,#7d9bff,#3f57cf,#192a7a)', rim:'#121d52'},
+  platinum:{bg:'conic-gradient(from 215deg,#7c8a9d,#f4f8ff,#c4d0e0,#ffffff,#b1bed2,#7c8a9d,#e7eef8,#c4d0e0,#7c8a9d)', rim:'#586271'},
+  amethyst:{bg:'conic-gradient(from 215deg,#4a1d73,#d59bff,#8a3fd4,#f1d7ff,#7a32c0,#4a1d73,#c98cff,#8a3fd4,#4a1d73)', rim:'#341452'},
+};
+const SHAPES = {
+  circle:'circle(49%)',
+  hex:'polygon(50% 1%, 94% 25%, 94% 75%, 50% 99%, 6% 75%, 6% 25%)',
+  shield:'polygon(50% 99%, 9% 74%, 9% 12%, 50% 1%, 91% 12%, 91% 74%)',
+  star:'polygon(50% 0%, 61% 33%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 33%)',
+  octagon:'polygon(30% 1%, 70% 1%, 99% 30%, 99% 70%, 70% 99%, 30% 99%, 1% 70%, 1% 30%)',
+  gem:'polygon(50% 0%, 100% 38%, 50% 100%, 0% 38%)',
+  banner:'polygon(2% 0%, 98% 0%, 98% 100%, 50% 82%, 2% 100%)',
+  rounded:'inset(1% round 28%)',
+};
+function coinHTML({metal, shape, scene, title, sub, size=104}){
+  const m=METALS[metal]||METALS.silver; const sh=SHAPES[shape]||SHAPES.circle;
+  const thick=Math.max(9, Math.round(size*0.13));
+  const vars=`--cs:${size}px;--metal:${m.bg};--shape:${sh};--rim:${m.rim};--thick:${thick}px;`;
+  const eng=`<svg class="engrave" viewBox="0 0 48 48" aria-hidden="true"><g class="rl">${scene}</g><g class="rd">${scene}</g></svg>`;
+  const back=`<div class="back-content"><div class="back-title">${title}</div><div class="back-sub">${sub}</div><div class="back-verify">✓ VERIFIED</div></div>`;
+  // extruded body: stacked clipped slices between the two faces, with a reeded sheen
+  const N=Math.max(8, Math.min(30, thick));
+  let body='';
+  for(let i=0;i<N;i++){
+    const z=(-thick/2 + 0.6) + (thick-1.2)*(i/(N-1));
+    const b=(0.72 + 0.34*Math.abs(Math.sin(i/(N-1)*Math.PI*4))).toFixed(2);
+    body+=`<div class="slice" style="transform:translateZ(${z.toFixed(2)}px); filter:brightness(${b})"></div>`;
+  }
+  return `<div class="coin3d shape-${shape}" style="${vars}">
+    <div class="coin" role="button" tabindex="0" aria-label="${title} coin — drag to spin">
+      <div class="coin-body">${body}</div>
+      <div class="coin-face back"></div>
+      <div class="coin-face front"></div>
+      <div class="coin-content back">${back}</div>
+      <div class="coin-content front">${eng}</div>
+    </div></div>`;
+}
+
+/* curated taste of 50+ — [metal, shape, scene, fullName, funline, requirement(short), coinName(short)] */
 const BADGES = [
-  ['✈️','Takeoff','Wheels up.'],
-  ['🌎','Explorer','5 countries deep.'],
-  ['🏆','World Traveler','25 stamps strong.'],
-  ['🌐','Around the World','50,000 km. Respect.'],
-  ['🚆','Rail Rider','Certified track addict.'],
-  ['🏙️','City Hopper','10 cities, no chill.'],
-  ['🐧','Polar Pioneer','You went there?!'],
-  ['🦘','Down Under','G’day, legend.'],
-  ['🎒','Weekend Warrior','3 trips, 1 month.'],
-  ['👑','Legend','Simply untouchable.'],
+  ['silver','circle',  SC.plane,    'Takeoff','Wheels up.','First flight','Takeoff'],
+  ['bronze','octagon', SC.globe,    'Explorer','5 countries deep.','5 countries','Explorer'],
+  ['gold','star',      SC.trophy,   'World Traveler','25 stamps strong.','25 countries','World'],
+  ['sapphire','circle',SC.orbit,    'Around the World','50,000 km. Respect.','50,000 km','Worldwide'],
+  ['steel','hex',      SC.train,    'Rail Rider','Track addict.','10 train trips','Rail Rider'],
+  ['emerald','shield', SC.cityhop,  'City Hopper','10 cities, no chill.','10 cities','City Hopper'],
+  ['platinum','hex',   SC.polar,    'Polar Pioneer','You went there?!','Antarctica','Polar'],
+  ['copper','shield',  SC.downunder,'Down Under','G’day, legend.','Oceania','Down Under'],
+  ['gold','banner',    SC.flag,     'Border Crosser','New stamp unlocked.','Cross a border','Border'],
+  ['emerald','rounded',SC.coffee,   'Local Brew','Caffeine secured.','Find a local café','Local Brew'],
+  ['steel','gem',      SC.moon,     'Night Owl','3am check-in.','Travel past midnight','Night Owl'],
+  ['bronze','rounded', SC.backpack, 'Weekend Warrior','3 trips, 1 month.','3 trips / month','Weekender'],
+  ['amethyst','star',  SC.crown,    'Legend','Untouchable.','50 countries','Legend'],
 ];
-document.getElementById('badgeGrid').innerHTML = BADGES.map(([em,nm,ds]) => `
-  <div class="bcard"><div class="shine"></div><span class="em">${em}</span>
-    <div class="nm">${nm}</div><div class="ds">${ds}</div></div>`).join('');
+document.getElementById('badgeGrid').innerHTML = BADGES.map(([metal,shape,scene,nm,fun,req,short]) => `
+  <div class="bcard"><div class="shine"></div>
+    ${coinHTML({metal,shape,scene,title:short,sub:req,size:104})}
+    <div class="nm">${nm}</div><div class="ds">${fun}</div></div>`).join('');
 
-/* ---------- boarding pass: press to flip ---------- */
+/* boarding-pass back → a real Takeoff coin */
+const passEm = document.querySelector('.pass-em');
+if (passEm) passEm.outerHTML = `<div class="pass-medal">${coinHTML({metal:'silver',shape:'circle',scene:SC.plane,title:'Takeoff',sub:'First flight',size:96})}</div>`;
+
+/* ---------- coins are real 3D objects: drag to spin, tap to flip ---------- */
+(function(){
+  let active=null, sx=0, sy=0, baseX=0, baseY=0, moved=false;
+  const rot = c => c.__rot || (c.__rot={x:10, y:-14});
+  const apply = c => { const r=rot(c); c.style.transform=`rotateX(${r.x}deg) rotateY(${r.y}deg)`; };
+  function down(e){
+    const c = e.target.closest('.coin'); if(!c) return;
+    active=c; moved=false; sx=e.clientX; sy=e.clientY;
+    const r=rot(c); baseX=r.x; baseY=r.y;
+    c.classList.add('spin');
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up, {once:true});
+  }
+  function move(e){
+    if(!active) return;
+    const dx=e.clientX-sx, dy=e.clientY-sy;
+    if(Math.abs(dx)+Math.abs(dy) > 4) moved=true;
+    const r=rot(active);
+    r.y = baseY + dx*0.6;
+    r.x = Math.max(-78, Math.min(78, baseX - dy*0.6));
+    apply(active);
+  }
+  function up(){
+    if(!active) return;
+    const c=active; active=null;
+    window.removeEventListener('pointermove', move);
+    c.classList.remove('spin');               // re-enable easing for the flip
+    if(!moved){ const r=rot(c); r.y += 180; apply(c); }   // tap = flip to the other face
+  }
+  document.addEventListener('pointerdown', down);
+  document.addEventListener('keydown', e => {
+    if(e.key!=='Enter' && e.key!==' ') return;
+    const c = e.target.closest && e.target.closest('.coin'); if(!c) return;
+    e.preventDefault(); const r=rot(c); r.y += 180; apply(c);
+  });
+})();
+
+/* ---------- boarding pass: press to flip (ignore taps on the coin) ---------- */
 const pass = document.getElementById('pass');
-const togglePass = () => pass.classList.toggle('flip');
-pass.addEventListener('click', togglePass);
-pass.addEventListener('keydown', (e) => { if(e.key==='Enter'||e.key===' '){ e.preventDefault(); togglePass(); }});
+pass.addEventListener('click', e => { if(e.target.closest('.coin')) return; pass.classList.toggle('flip'); });
+pass.addEventListener('keydown', (e) => { if((e.key==='Enter'||e.key===' ') && !e.target.closest('.coin')){ e.preventDefault(); pass.classList.toggle('flip'); }});
 
-/* ---------- rank sticky scroll ---------- */
-const TIERS = [['🧭','Explorer'],['🗺️','Pathfinder'],['🧗','Navigator'],['🔥','Trailblazer'],['🏆','World Traveler'],['👑','Legend']];
+/* ---------- rank sticky scroll → coin morphs metal/shape per tier ---------- */
+const RANKS = [
+  {n:'Explorer',      metal:'bronze',  shape:'octagon',scene:SC.compass, mi:'0–2K mi'},
+  {n:'Pathfinder',    metal:'steel',   shape:'hex',    scene:SC.map,     mi:'2K–8K mi'},
+  {n:'Navigator',     metal:'silver',  shape:'gem',    scene:SC.globe,   mi:'8K–20K mi'},
+  {n:'Trailblazer',   metal:'copper',  shape:'shield', scene:SC.flame,   mi:'20K–50K mi'},
+  {n:'World Traveler',metal:'gold',    shape:'star',   scene:SC.trophy,  mi:'50K–100K mi'},
+  {n:'Legend',        metal:'amethyst',shape:'star',   scene:SC.crown,   mi:'100K+ mi'},
+];
+const rankCoin = document.getElementById('rankCoin');
+const orbLbl = document.getElementById('orbLbl');
 const stage = document.getElementById('rankStage');
 const items = [...document.querySelectorAll('.rank-item')];
-const orbEm = document.getElementById('orbEm'), orbLbl = document.getElementById('orbLbl');
 let curTier = -1;
+function setRank(idx){
+  const r = RANKS[idx];
+  const size = Math.min(290, Math.round(innerWidth * 0.6));
+  rankCoin.innerHTML = coinHTML({metal:r.metal, shape:r.shape, scene:r.scene, title:r.n, sub:r.mi, size});
+  orbLbl.textContent = r.n;
+  items.forEach(it => it.classList.toggle('on', +it.dataset.i === idx));
+}
 function onRankScroll(){
-  const r = stage.getBoundingClientRect();
+  const rect = stage.getBoundingClientRect();
   const total = stage.offsetHeight - innerHeight;
-  const p = Math.min(Math.max(-r.top/total, 0), .9999);
-  const idx = Math.min(Math.floor(p * TIERS.length), TIERS.length-1);
-  if (idx !== curTier){
-    curTier = idx;
-    items.forEach(it => it.classList.toggle('on', +it.dataset.i === idx));
-    orbEm.textContent = TIERS[idx][0]; orbLbl.textContent = TIERS[idx][1];
-  }
+  const p = Math.min(Math.max(-rect.top/total, 0), .9999);
+  const idx = Math.min(Math.floor(p * RANKS.length), RANKS.length-1);
+  if (idx !== curTier){ curTier = idx; setRank(idx); }
 }
 addEventListener('scroll', onRankScroll, {passive:true}); onRankScroll();
 

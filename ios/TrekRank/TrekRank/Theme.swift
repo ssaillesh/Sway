@@ -72,6 +72,91 @@ struct NeonButtonStyle: ButtonStyle {
     }
 }
 
+/// A custom medallion badge — a glossy gradient coin with a metallic rim and an
+/// SF Symbol glyph, themed per achievement tier. Replaces emoji badge art.
+struct BadgeMedallion: View {
+    let badge: Badge
+    var size: CGFloat = 64
+
+    var body: some View {
+        let (c1, c2) = Self.tier(badge.id)
+        ZStack {
+            Circle().fill(.white.opacity(0.30))                     // bright outer rim
+            ZStack {
+                Circle().fill(RadialGradient(
+                    colors: [c1, c2],
+                    center: UnitPoint(x: 0.38, y: 0.30),
+                    startRadius: 1, endRadius: size * 0.85))
+                Ellipse().fill(.white.opacity(0.30))                // glossy highlight
+                    .frame(width: size * 0.52, height: size * 0.34)
+                    .offset(x: -size * 0.07, y: -size * 0.18)
+                    .blur(radius: 1)
+            }
+            .padding(size * 0.045)
+            .clipShape(Circle())
+            Image(systemName: Self.symbol(badge))
+                .font(.system(size: size * 0.40, weight: .bold))
+                .foregroundStyle(Color(red: 0.03, green: 0.13, blue: 0.10).opacity(0.92))
+        }
+        .frame(width: size, height: size)
+        .overlay(Circle().stroke(.black.opacity(0.16), lineWidth: 1).padding(size * 0.045))
+        .shadow(color: .black.opacity(0.40), radius: size * 0.12, y: size * 0.07)
+        .grayscale(badge.earned ? 0 : 1)
+        .opacity(badge.earned ? 1 : 0.45)
+    }
+
+    // Tier palette — gold for prestige, indigo for distance, ice for polar, teal default.
+    static func tier(_ id: String) -> (Color, Color) {
+        let teal   = (Color(red: 0.37, green: 0.92, blue: 0.83), Color(red: 0.14, green: 0.72, blue: 0.62))
+        let gold   = (Color(red: 1.00, green: 0.85, blue: 0.48), Color(red: 0.92, green: 0.63, blue: 0.12))
+        let indigo = (Color(red: 0.54, green: 0.63, blue: 1.00), Color(red: 0.33, green: 0.40, blue: 0.88))
+        let ice    = (Color(red: 0.80, green: 0.93, blue: 1.00), Color(red: 0.45, green: 0.70, blue: 0.90))
+        switch id {
+        case "twenty_five", "fifty_countries", "all_continents", "fifty_cities": return gold
+        case "fifty_k_km", "ten_k_km", "north_america", "europe", "asia", "visited_eu": return indigo
+        case "visited_an", "visited_oc": return ice
+        default: return teal
+        }
+    }
+
+    // Glyph per badge (SF Symbols, widely available on iOS 15+).
+    static func symbol(_ badge: Badge) -> String {
+        switch badge.id {
+        case "first_trip":       return "map.fill"
+        case "five_countries":   return "globe.americas.fill"
+        case "ten_countries":    return "globe.europe.africa.fill"
+        case "twenty_five":      return "trophy.fill"
+        case "fifty_countries":  return "crown.fill"
+        case "ten_cities":       return "building.2.fill"
+        case "fifty_cities":     return "building.columns.fill"
+        case "ten_k_km":         return "rosette"
+        case "fifty_k_km":       return "map.fill"
+        case "north_america":    return "flag.fill"
+        case "europe":           return "building.columns.fill"
+        case "asia":             return "flag.checkered"
+        case "first_flight":     return "airplane"
+        case "train_lover":      return "tram.fill"
+        case "road_warrior":     return "car.fill"
+        case "weekend_warrior":  return "calendar"
+        case "photographer":     return "camera.fill"
+        case "visited_af":       return "pawprint.fill"
+        case "visited_as":       return "globe.asia.australia.fill"
+        case "visited_eu":       return "building.columns.fill"
+        case "visited_na":       return "star.fill"
+        case "visited_sa":       return "leaf.fill"
+        case "visited_oc":       return "globe.asia.australia.fill"
+        case "visited_an":       return "snowflake"
+        case "all_continents":   return "globe"
+        default:
+            switch badge.category {
+            case "transport": return "airplane"
+            case "continent": return "globe"
+            default:          return "rosette"
+            }
+        }
+    }
+}
+
 /// A number that counts up when it appears — adds life to stats.
 struct CountUpText: View {
     let value: Double
