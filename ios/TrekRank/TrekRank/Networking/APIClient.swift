@@ -176,6 +176,20 @@ actor APIClient {
                               decode: EmptyResponse.self)
     }
 
+    func follow(username: String) async throws {
+        struct Body: Encodable { let username: String }
+        _ = try await request("friends/follow", method: "POST", body: Body(username: username),
+                              decode: EmptyResponse.self)
+    }
+
+    func unfollow(username: String) async throws {
+        _ = try await request("friends/follow/\(username)", method: "DELETE", decode: EmptyResponse.self)
+    }
+
+    func followStatus(username: String) async throws -> FollowStatus {
+        try await request("friends/status/\(username)", decode: FollowStatus.self)
+    }
+
     // MARK: Leaderboard / Feed / Badges / Share
 
     func leaderboard(metric: String, period: String) async throws -> LeaderboardResponse {

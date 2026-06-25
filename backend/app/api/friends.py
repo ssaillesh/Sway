@@ -9,9 +9,64 @@ from app.models import User, Friendship
 from app.middleware.auth import get_current_user
 from app.schemas.social import FriendRequestCreate, FriendshipOut, FriendOut
 from app.schemas.user import UserPublic
-from app.services.friends import friend_ids
+from app.services.friends import friend_ids, following_ids, followers_ids, is_following
+from app.services import leaderboard
 
 router = APIRouter(prefix="/friends", tags=["friends"])
+
+
+def _target_by_username(db: Session, username: str, user: User) -> User:
+    target = db.scalar(select(User).where(User.username == username))
+    if not target:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "User not found")
+    if target.id == user.id:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "You can't follow yourself")
+    return target
+
+
+@router.post("/follow", status_code=201)
+def follow(body: FriendRequestCreate, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Follow a user (instant, no approval)."""
+    target = _target_by_username(db, body.username, user)
+    existing = db.scalar(select(Friendship).where(
+        Friendship.requester_id == user.id, Friendship.addressee_id == target.id))
+    if existing:
+        existing.status = "accepted"
+    else:
+        db.add(Friendship(requester_id=user.id, addressee_id=target.id, status="accepted"))
+    db.commit()
+    try:
+        leaderboard.rebuild_for_user(db, user)   # Following board now includes them
+    except Exception:
+        pass
+    return {"following": True, "username": target.username}
+
+
+@router.delete("/follow/{username}", status_code=204)
+def unfollow(username: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    target = _target_by_username(db, username, user)
+    f = db.scalar(select(Friendship).where(
+        Friendship.requester_id == user.id, Friendship.addressee_id == target.id))
+    if f:
+        db.delete(f)
+        db.commit()
+        try:
+            leaderboard.rebuild_for_user(db, user)
+        except Exception:
+            pass
+
+
+@router.get("/status/{username}")
+def follow_status(username: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    target = db.scalar(select(User).where(User.username == username))
+    if not target:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "User not found")
+    return {
+        "is_following": is_following(db, user.id, target.id),
+        "is_self": target.id == user.id,
+        "followers": len(followers_ids(db, target.id)),
+        "following": len(following_ids(db, target.id)),
+    }
 
 
 def _pub(u: User) -> UserPublic:

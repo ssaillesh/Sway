@@ -86,13 +86,27 @@ struct ProfileView: View {
 final class PublicProfileViewModel: ObservableObject {
     @Published var profile: UserProfile?
     @Published var badges: [Badge] = []
+    @Published var status: FollowStatus?
+    @Published var working = false
     @Published var loading = false
 
     func load(_ username: String) async {
         loading = true
         profile = try? await APIClient.shared.user(username: username)
         badges = (try? await APIClient.shared.userBadges(username: username)) ?? []
+        status = try? await APIClient.shared.followStatus(username: username)
         loading = false
+    }
+
+    func toggleFollow(_ username: String) async {
+        guard let s = status, !s.isSelf, !working else { return }
+        working = true
+        do {
+            if s.isFollowing { try await APIClient.shared.unfollow(username: username) }
+            else { try await APIClient.shared.follow(username: username) }
+            status = try? await APIClient.shared.followStatus(username: username)
+        } catch { }
+        working = false
     }
 }
 
@@ -107,6 +121,14 @@ struct PublicProfileView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 ProfileHero(profile: vm.profile)
+                if let s = vm.status {
+                    HStack(spacing: 22) {
+                        followStat(s.followers, "Followers")
+                        followStat(s.following, "Following")
+                        Spacer()
+                        if !s.isSelf { followButton(s) }
+                    }
+                }
                 if let bio = vm.profile?.bio, !bio.isEmpty {
                     Text(bio).font(.subheadline)
                 }
@@ -121,6 +143,30 @@ struct PublicProfileView: View {
         .navigationBarTitleDisplayMode(.inline)
         .overlay { if vm.loading && vm.profile == nil { ProgressView().tint(TrekTheme.accent) } }
         .task { await vm.load(username) }
+    }
+
+    private func followStat(_ value: Int, _ label: String) -> some View {
+        VStack(spacing: 2) {
+            Text("\(value)").font(.headline.bold())
+            Text(label).font(.caption2).foregroundStyle(.secondary)
+        }
+    }
+
+    private func followButton(_ s: FollowStatus) -> some View {
+        Button {
+            Task { await vm.toggleFollow(username) }
+        } label: {
+            HStack(spacing: 6) {
+                if vm.working { ProgressView().controlSize(.small) }
+                Label(s.isFollowing ? "Following" : "Follow",
+                      systemImage: s.isFollowing ? "checkmark" : "plus")
+                    .font(.subheadline.bold())
+            }
+            .padding(.horizontal, 18).padding(.vertical, 9)
+            .background(s.isFollowing ? Color.gray.opacity(0.25) : TrekTheme.accent, in: Capsule())
+            .foregroundStyle(s.isFollowing ? Color.primary : Color.black)
+        }
+        .disabled(vm.working)
     }
 }
 

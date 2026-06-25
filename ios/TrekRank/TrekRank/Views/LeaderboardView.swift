@@ -4,7 +4,7 @@ import SwiftUI
 final class LeaderboardViewModel: ObservableObject {
     @Published var board: LeaderboardResponse?
     @Published var loading = false
-    @Published var scope = "friends"   // friends | global
+    @Published var scope = "global"   // global | friends — default to the full board
     @Published var metric = "countries"
     @Published var period = "all_time"
 
@@ -30,7 +30,7 @@ struct LeaderboardView: View {
         NavigationStack {
             VStack(spacing: 12) {
                 Picker("Scope", selection: $vm.scope) {
-                    Text("Friends").tag("friends"); Text("Global").tag("global")
+                    Text("Global").tag("global"); Text("Following").tag("friends")
                 }.pickerStyle(.segmented).padding(.horizontal)
 
                 Picker("Metric", selection: $vm.metric) {

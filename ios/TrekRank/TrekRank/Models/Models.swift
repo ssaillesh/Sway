@@ -267,6 +267,19 @@ struct FeedRecommendation: Codable {
     let country: String?
 }
 
+struct FollowStatus: Codable {
+    let isFollowing: Bool
+    let isSelf: Bool
+    let followers: Int
+    let following: Int
+
+    enum CodingKeys: String, CodingKey {
+        case isFollowing = "is_following"
+        case isSelf = "is_self"
+        case followers, following
+    }
+}
+
 struct FeedItem: Codable, Identifiable {
     let id: String
     let eventType: String

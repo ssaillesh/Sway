@@ -11,7 +11,7 @@ from app.schemas.social import (
     FeedResponse, FeedItem, FeedTrip, FeedBadge, FeedRecommendation, RecommendationCreate,
 )
 from app.schemas.user import UserPublic
-from app.services.friends import friend_ids
+from app.services.friends import following_ids
 
 router = APIRouter(prefix="/feed", tags=["feed"])
 
@@ -76,8 +76,8 @@ def friends_feed(
     db: Session = Depends(get_db),
 ):
     # Home feed = the user's own activity (their trips + earned badges) plus
-    # their friends', newest first — so achievements show up on their own feed.
-    ids = friend_ids(db, user.id) + [user.id]
+    # everyone they follow, newest first.
+    ids = following_ids(db, user.id) + [user.id]
     return _paginate(db, ids, cursor, limit)
 
 

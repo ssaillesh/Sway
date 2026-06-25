@@ -13,7 +13,7 @@ final class FeedViewModel: ObservableObject {
     // People search
     @Published var people: [LeaderboardUser] = []
     @Published var searching = false
-    @Published var requested: Set<String> = []   // usernames a request was sent to
+    @Published var following: Set<String> = []   // usernames the user follows
 
     // Achievement celebration (a trip just unlocked one or more badges)
     @Published var celebration: Celebration?
@@ -91,10 +91,15 @@ final class FeedViewModel: ObservableObject {
         }
     }
 
-    func addFriend(_ username: String) async {
+    func toggleFollow(_ username: String) async {
         do {
-            try await APIClient.shared.sendFriendRequest(username: username)
-            requested.insert(username)
+            if following.contains(username) {
+                try await APIClient.shared.unfollow(username: username)
+                following.remove(username)
+            } else {
+                try await APIClient.shared.follow(username: username)
+                following.insert(username)
+            }
         } catch {
             self.error = (error as? APIError)?.errorDescription ?? error.localizedDescription
         }
@@ -146,7 +151,7 @@ struct FeedView: View {
                 }
             }
             .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always),
-                        prompt: scope == .people ? "Search people to add" : "Search posts")
+                        prompt: scope == .people ? "Search people to follow" : "Search posts")
             .searchScopes($scope) {
                 ForEach(FeedScope.allCases, id: \.self) { Text($0.rawValue).tag($0) }
             }
@@ -205,8 +210,8 @@ struct FeedView: View {
         if vm.searching {
             ProgressView().tint(TrekTheme.accent).padding(.top, 40)
         } else if query.isEmpty {
-            ContentUnavailableView("Find friends", systemImage: "person.2",
-                description: Text("Search by username to send a friend request."))
+            ContentUnavailableView("Find people", systemImage: "person.2",
+                description: Text("Search by username to follow other travellers."))
                 .padding(.top, 80)
         } else if vm.people.isEmpty {
             ContentUnavailableView.search(text: query).padding(.top, 60)
@@ -214,8 +219,8 @@ struct FeedView: View {
             ForEach(vm.people, id: \.id) { person in
                 NavigationLink(value: person.username) {
                     PersonRow(person: person,
-                              requested: vm.requested.contains(person.username)) {
-                        Task { await vm.addFriend(person.username) }
+                              isFollowing: vm.following.contains(person.username)) {
+                        Task { await vm.toggleFollow(person.username) }
                     }
                 }
                 .buttonStyle(.plain)
@@ -226,8 +231,8 @@ struct FeedView: View {
 
 struct PersonRow: View {
     let person: LeaderboardUser
-    let requested: Bool
-    let onAdd: () -> Void
+    let isFollowing: Bool
+    let onToggle: () -> Void
 
     var body: some View {
         GlassCard {
@@ -239,16 +244,15 @@ struct PersonRow: View {
                     Text("@\(person.username)").font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer()
-                Button(action: onAdd) {
-                    Label(requested ? "Requested" : "Add",
-                          systemImage: requested ? "checkmark" : "person.badge.plus")
+                Button(action: onToggle) {
+                    Label(isFollowing ? "Following" : "Follow",
+                          systemImage: isFollowing ? "checkmark" : "plus")
                         .font(.caption.bold())
                         .padding(.horizontal, 12).padding(.vertical, 7)
-                        .background(requested ? Color.gray.opacity(0.25) : TrekTheme.accent,
+                        .background(isFollowing ? Color.gray.opacity(0.25) : TrekTheme.accent,
                                     in: Capsule())
-                        .foregroundStyle(requested ? Color.secondary : Color.black)
+                        .foregroundStyle(isFollowing ? Color.secondary : Color.black)
                 }
-                .disabled(requested)
             }
         }
     }

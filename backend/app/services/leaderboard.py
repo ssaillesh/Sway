@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from app.models import User, Trip, VisitedCountry, VisitedCity
 from app.redis_client import redis_client
 from app.config import settings
-from app.services.friends import friend_ids
+from app.services.friends import following_ids
 
 VALID_METRICS = {"countries", "cities", "km", "trips"}
 
@@ -70,7 +70,7 @@ def _metric_value(db: Session, user: User, metric: str, period: str) -> float:
 
 def rebuild_for_user(db: Session, user: User) -> None:
     """Rebuild all friend-leaderboard ZSETs that include `user` (self + each friend's group)."""
-    fids = friend_ids(db, user.id)
+    fids = following_ids(db, user.id)
     group_user_ids = set(fids) | {user.id}
     members = db.execute(select(User).where(User.id.in_(group_user_ids))).scalars().all()
 

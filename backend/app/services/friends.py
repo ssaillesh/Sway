@@ -21,6 +21,33 @@ def friend_ids(db: Session, user_id: uuid.UUID) -> list[uuid.UUID]:
     return out
 
 
+# A "follow" is a directional accepted friendship: requester = follower,
+# addressee = the followed user.
+
+def following_ids(db: Session, user_id: uuid.UUID) -> list[uuid.UUID]:
+    """Users this user follows."""
+    return list(db.execute(
+        select(Friendship.addressee_id).where(
+            Friendship.requester_id == user_id, Friendship.status == "accepted")
+    ).scalars().all())
+
+
+def followers_ids(db: Session, user_id: uuid.UUID) -> list[uuid.UUID]:
+    """Users who follow this user."""
+    return list(db.execute(
+        select(Friendship.requester_id).where(
+            Friendship.addressee_id == user_id, Friendship.status == "accepted")
+    ).scalars().all())
+
+
+def is_following(db: Session, user_id: uuid.UUID, target_id: uuid.UUID) -> bool:
+    return db.scalar(
+        select(Friendship.id).where(
+            Friendship.requester_id == user_id, Friendship.addressee_id == target_id,
+            Friendship.status == "accepted")
+    ) is not None
+
+
 def are_friends(db: Session, a: uuid.UUID, b: uuid.UUID) -> bool:
     return db.scalar(
         select(Friendship.id).where(
