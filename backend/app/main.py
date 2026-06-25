@@ -8,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from app.config import settings
 from app.middleware.rate_limit import RateLimitMiddleware
 from app.api import (
-    auth, users, trips, friends, leaderboards, feed, badges, challenges, share,
+    auth, users, trips, friends, leaderboards, feed, badges, challenges, share, waitlist,
 )
 
 app = FastAPI(
@@ -32,7 +32,7 @@ if settings.storage_backend == "local":
     app.mount("/media", StaticFiles(directory=settings.local_storage_dir), name="media")
 
 P = settings.api_v1_prefix
-for r in (auth, users, trips, friends, leaderboards, feed, badges, challenges, share):
+for r in (auth, users, trips, friends, leaderboards, feed, badges, challenges, share, waitlist):
     app.include_router(r.router, prefix=P)
 
 

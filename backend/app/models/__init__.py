@@ -6,8 +6,10 @@ from app.models.visited import VisitedCountry, VisitedCity
 from app.models.badge import Badge, UserBadge
 from app.models.challenge import Challenge, ChallengeParticipant
 from app.models.activity import ActivityFeed
+from app.models.waitlist import WaitlistSignup
 
 __all__ = [
+    "WaitlistSignup",
     "User",
     "Friendship",
     "Trip",
