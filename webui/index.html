@@ -155,14 +155,16 @@
   .rank-sticky{position:sticky; top:0; height:100svh; display:flex; align-items:center; overflow:hidden;}
   .rank-grid{display:grid; grid-template-columns:1fr 1fr; gap:40px; align-items:center; width:100%;}
   @media(max-width:860px){.rank-grid{grid-template-columns:1fr; gap:24px;}}
-  .rank-ladder{display:flex; flex-direction:column; gap:10px;}
-  .rank-item{display:flex; align-items:center; gap:16px; padding:16px 18px; border-radius:16px;
-    border:1px solid var(--card-brd); background:var(--card); transition:.45s; opacity:.4;}
+  .rank-ladder{display:flex; flex-direction:column; gap:8px;}
+  .rank-item{display:flex; align-items:center; gap:16px; padding:13px 16px; border-radius:16px;
+    border:1px solid var(--card-brd); background:var(--card); transition:.45s; opacity:.42;}
   .rank-item.on{opacity:1; background:linear-gradient(90deg,rgba(94,235,212,.14),rgba(115,140,255,.06));
     border-color:rgba(94,235,212,.5); transform:translateX(6px);}
-  .rank-item .em{font-size:26px;}
-  .rank-item .nm{font-weight:800; font-size:18px;}
-  .rank-item .mi{font-size:13px; color:var(--muted2); font-weight:600;}
+  .rank-item .coin3d{margin:0; flex:none; transition:transform .45s;}
+  .rank-item.on .coin3d{transform:scale(1.12);}
+  .rank-item .nm{font-weight:800; font-size:17px;}
+  .rank-item .desc{font-size:12.5px; color:var(--muted2); font-weight:600; line-height:1.25; margin-top:2px;}
+  .coin3d.static .coin{pointer-events:none; cursor:default;}
   .rank-badge{display:flex; flex-direction:column; align-items:center; gap:20px; position:relative;}
   .rank-badge::before{content:""; position:absolute; width:min(360px,76vw); aspect-ratio:1; top:-6%;
     border-radius:50%; background:radial-gradient(circle at 40% 35%,rgba(94,235,212,.3),rgba(115,140,255,.12) 55%,transparent 72%);
@@ -503,14 +505,7 @@
           <h2 class="h2" style="margin-bottom:14px">Climb from Explorer<br>to <span class="grad">Legend</span>.</h2>
           <p class="lead" style="margin-bottom:26px">Your rank grows with verified miles, completed journeys,
             and community activity. Every trip moves you up the ladder.</p>
-          <div class="rank-ladder" id="ladder">
-            <div class="rank-item" data-i="0"><span class="em">🧭</span><div><div class="nm">Explorer</div><div class="mi">0 – 2,000 verified mi</div></div></div>
-            <div class="rank-item" data-i="1"><span class="em">🗺️</span><div><div class="nm">Pathfinder</div><div class="mi">2,000 – 8,000 mi</div></div></div>
-            <div class="rank-item" data-i="2"><span class="em">🧗</span><div><div class="nm">Navigator</div><div class="mi">8,000 – 20,000 mi</div></div></div>
-            <div class="rank-item" data-i="3"><span class="em">🔥</span><div><div class="nm">Trailblazer</div><div class="mi">20,000 – 50,000 mi</div></div></div>
-            <div class="rank-item" data-i="4"><span class="em">🏆</span><div><div class="nm">World Traveler</div><div class="mi">50,000 – 100,000 mi</div></div></div>
-            <div class="rank-item" data-i="5"><span class="em">👑</span><div><div class="nm">Legend</div><div class="mi">100,000+ verified mi</div></div></div>
-          </div>
+          <div class="rank-ladder" id="ladder"><!-- mini medals injected by JS --></div>
         </div>
         <div class="rank-badge">
           <div class="rank-coin-wrap" id="rankCoin"></div>
@@ -801,7 +796,7 @@ const SHAPES = {
   banner:'polygon(2% 0%, 98% 0%, 98% 100%, 50% 82%, 2% 100%)',
   rounded:'inset(1% round 28%)',
 };
-function coinHTML({metal, shape, scene, title, sub, size=104}){
+function coinHTML({metal, shape, scene, title, sub, size=104, static:isStatic=false}){
   const m=METALS[metal]||METALS.silver; const sh=SHAPES[shape]||SHAPES.circle;
   const thick=Math.max(9, Math.round(size*0.13));
   const vars=`--cs:${size}px;--metal:${m.bg};--shape:${sh};--rim:${m.rim};--thick:${thick}px;`;
@@ -815,7 +810,7 @@ function coinHTML({metal, shape, scene, title, sub, size=104}){
     const b=(0.72 + 0.34*Math.abs(Math.sin(i/(N-1)*Math.PI*4))).toFixed(2);
     body+=`<div class="slice" style="transform:translateZ(${z.toFixed(2)}px); filter:brightness(${b})"></div>`;
   }
-  return `<div class="coin3d shape-${shape}" style="${vars}">
+  return `<div class="coin3d shape-${shape}${isStatic?' static':''}" style="${vars}">
     <div class="coin" role="button" tabindex="0" aria-label="${title} coin — drag to spin">
       <div class="coin-body">${body}</div>
       <div class="coin-face back"></div>
@@ -894,17 +889,25 @@ pass.addEventListener('keydown', (e) => { if((e.key==='Enter'||e.key===' ') && !
 
 /* ---------- rank sticky scroll → coin morphs metal/shape per tier ---------- */
 const RANKS = [
-  {n:'Explorer',      metal:'bronze',  shape:'octagon',scene:SC.compass, mi:'0–2K mi'},
-  {n:'Pathfinder',    metal:'steel',   shape:'hex',    scene:SC.map,     mi:'2K–8K mi'},
-  {n:'Navigator',     metal:'silver',  shape:'gem',    scene:SC.globe,   mi:'8K–20K mi'},
-  {n:'Trailblazer',   metal:'copper',  shape:'shield', scene:SC.flame,   mi:'20K–50K mi'},
-  {n:'World Traveler',metal:'gold',    shape:'star',   scene:SC.trophy,  mi:'50K–100K mi'},
-  {n:'Legend',        metal:'amethyst',shape:'star',   scene:SC.crown,   mi:'100K+ mi'},
+  {n:'Explorer',      metal:'bronze',  shape:'octagon',scene:SC.compass, mi:'0–2K mi',     desc:'Your first stamps. Log a trip and the journey begins.'},
+  {n:'Pathfinder',    metal:'steel',   shape:'hex',    scene:SC.map,     mi:'2K–8K mi',    desc:'Finding your rhythm — a few countries down, momentum building.'},
+  {n:'Navigator',     metal:'silver',  shape:'gem',    scene:SC.globe,   mi:'8K–20K mi',   desc:'You know your way around. Verified miles really adding up.'},
+  {n:'Trailblazer',   metal:'copper',  shape:'shield', scene:SC.flame,   mi:'20K–50K mi',  desc:'Off the beaten path. You travel more than almost anyone.'},
+  {n:'World Traveler',metal:'gold',    shape:'star',   scene:SC.trophy,  mi:'50K–100K mi', desc:'A passport full of proof. Top-tier explorer status.'},
+  {n:'Legend',        metal:'amethyst',shape:'star',   scene:SC.crown,   mi:'100K+ mi',    desc:'The summit. 100,000+ verified miles. Untouchable.'},
 ];
 const rankCoin = document.getElementById('rankCoin');
 const orbLbl = document.getElementById('orbLbl');
 const stage = document.getElementById('rankStage');
+
+/* build the scroll-through ladder of mini medals (replaces the old emoji list) */
+document.getElementById('ladder').innerHTML = RANKS.map((r,i) => `
+  <div class="rank-item" data-i="${i}">
+    ${coinHTML({metal:r.metal, shape:r.shape, scene:r.scene, title:r.n, sub:r.mi, size:50, static:true})}
+    <div><div class="nm">${r.n}</div><div class="desc">${r.desc}</div></div>
+  </div>`).join('');
 const items = [...document.querySelectorAll('.rank-item')];
+
 let curTier = -1;
 function setRank(idx){
   const r = RANKS[idx];
