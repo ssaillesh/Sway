@@ -15,10 +15,11 @@ enum TrekTheme {
 
 /// Subtly glowing background used behind every screen.
 ///
-/// The two neon blobs are rendered *once* and flattened into a single cached
-/// layer — deliberately NOT animated with `.repeatForever`. A perpetual
-/// animation would force the GPU to re-render these large blurs every frame on
-/// every screen, which pins the iOS Simulator's GPU and overheats the Mac.
+/// The two neon blobs are static — deliberately NOT animated with
+/// `.repeatForever`. A perpetual animation would force the GPU to re-render
+/// these large blurs every frame on every screen, which pins the iOS
+/// Simulator's GPU and overheats the Mac. Being static, they render once and
+/// the compositor caches them, so the cost is paid a single time.
 struct ScreenBackground: View {
     var body: some View {
         ZStack {
@@ -31,7 +32,6 @@ struct ScreenBackground: View {
                 .offset(x: 120, y: 340)
         }
         .ignoresSafeArea()
-        .drawingGroup()   // rasterize once into a cached Metal layer
     }
 }
 
