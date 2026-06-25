@@ -1,4 +1,5 @@
 import SwiftUI
+import CoreLocation
 
 struct AddTripView: View {
     @Environment(\.dismiss) private var dismiss
@@ -54,14 +55,25 @@ struct AddTripView: View {
     private func save() {
         saving = true; error = nil
         let fmt = DateFormatter(); fmt.dateFormat = "yyyy-MM-dd"
-        let body = CreateTripBody(
-            title: title.isEmpty ? nil : title,
-            originCity: originCity.isEmpty ? nil : originCity,
-            originCountry: originCountry.isEmpty ? nil : originCountry.uppercased(),
-            destCity: destCity, destCountry: destCountry.uppercased(),
-            transportMode: transport, startDate: fmt.string(from: startDate),
-            endDate: nil, notes: nil)
         Task {
+            // Resolve coordinates on-device so the server can skip its slow
+            // geocoding and compute the distance immediately. If a lookup
+            // fails, we just omit the coords and the server falls back to its
+            // own geocoding — no worse than before.
+            let dest = await Self.geocode(city: destCity, country: destCountry.uppercased())
+            let origin = originCity.isEmpty
+                ? nil
+                : await Self.geocode(city: originCity, country: originCountry.uppercased())
+
+            let body = CreateTripBody(
+                title: title.isEmpty ? nil : title,
+                originCity: originCity.isEmpty ? nil : originCity,
+                originCountry: originCountry.isEmpty ? nil : originCountry.uppercased(),
+                destCity: destCity, destCountry: destCountry.uppercased(),
+                transportMode: transport, startDate: fmt.string(from: startDate),
+                endDate: nil, notes: nil,
+                originLat: origin?.latitude, originLng: origin?.longitude,
+                destLat: dest?.latitude, destLng: dest?.longitude)
             do {
                 _ = try await APIClient.shared.createTrip(body)
                 await onSaved()
@@ -70,6 +82,20 @@ struct AddTripView: View {
                 self.error = (error as? APIError)?.errorDescription ?? error.localizedDescription
             }
             saving = false
+        }
+    }
+
+    /// Resolve a "City, COUNTRY" string to coordinates using Apple's on-device
+    /// geocoder. Returns nil if it can't be resolved (caller then lets the
+    /// server geocode instead).
+    private static func geocode(city: String, country: String) async -> CLLocationCoordinate2D? {
+        let query = country.isEmpty ? city : "\(city), \(country)"
+        let coder = CLGeocoder()
+        return await withCheckedContinuation { cont in
+            coder.geocodeAddressString(query) { placemarks, _ in
+                _ = coder // keep the geocoder alive until completion
+                cont.resume(returning: placemarks?.first?.location?.coordinate)
+            }
         }
     }
 }

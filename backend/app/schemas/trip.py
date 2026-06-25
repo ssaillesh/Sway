@@ -13,6 +13,13 @@ class TripCreate(BaseModel):
     end_date: date | None = None
     notes: str | None = None
     is_public: bool = True
+    # Optional client-supplied coordinates (e.g. resolved on-device by the iOS
+    # app via CLGeocoder). When present, the worker skips the slow Nominatim
+    # lookup and computes distance immediately.
+    origin_lat: float | None = Field(default=None, ge=-90, le=90)
+    origin_lng: float | None = Field(default=None, ge=-180, le=180)
+    dest_lat: float | None = Field(default=None, ge=-90, le=90)
+    dest_lng: float | None = Field(default=None, ge=-180, le=180)
 
 
 class TripUpdate(BaseModel):

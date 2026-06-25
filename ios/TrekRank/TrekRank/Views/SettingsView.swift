@@ -33,6 +33,14 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    Button {
+                        session.logout()
+                    } label: {
+                        Label("Sign out", systemImage: "rectangle.portrait.and.arrow.right")
+                    }
+                }
+
+                Section {
                     Button(role: .destructive) { showDeleteConfirm = true } label: {
                         HStack {
                             if session.isLoading { ProgressView() }

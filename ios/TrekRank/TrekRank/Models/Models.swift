@@ -145,6 +145,11 @@ struct CreateTripBody: Encodable {
     var endDate: String?
     var notes: String?
     var isPublic: Bool = true
+    // Resolved on-device (CLGeocoder) so the server skips its slow geocoding.
+    var originLat: Double?
+    var originLng: Double?
+    var destLat: Double?
+    var destLng: Double?
 
     enum CodingKeys: String, CodingKey {
         case title, notes
@@ -156,6 +161,10 @@ struct CreateTripBody: Encodable {
         case startDate = "start_date"
         case endDate = "end_date"
         case isPublic = "is_public"
+        case originLat = "origin_lat"
+        case originLng = "origin_lng"
+        case destLat = "dest_lat"
+        case destLng = "dest_lng"
     }
 }
 

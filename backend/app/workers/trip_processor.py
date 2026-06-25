@@ -77,9 +77,20 @@ def process_trip_sync(trip_id: str) -> None:
             return
         user = db.get(User, trip.user_id)
 
-        # 1. Geocode
-        dest = geocode(trip.dest_city, trip.dest_country)
-        origin = geocode(trip.origin_city, trip.origin_country) if trip.origin_city else None
+        # 1. Resolve coordinates. Prefer client-supplied coords (the iOS app
+        #    geocodes on-device and sends them) so we can skip the slow, rate-
+        #    limited Nominatim call entirely. Fall back to geocoding otherwise.
+        if trip.dest_lat is not None and trip.dest_lng is not None:
+            dest = (trip.dest_lat, trip.dest_lng)
+        else:
+            dest = geocode(trip.dest_city, trip.dest_country)
+
+        if trip.origin_lat is not None and trip.origin_lng is not None:
+            origin = (trip.origin_lat, trip.origin_lng)
+        elif trip.origin_city:
+            origin = geocode(trip.origin_city, trip.origin_country)
+        else:
+            origin = None
         if not origin and user and user.home_city:
             origin = geocode(user.home_city, user.home_country)
 

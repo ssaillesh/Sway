@@ -54,6 +54,8 @@ def create_trip(body: TripCreate, user: User = Depends(get_current_user), db: Se
         origin_country=body.origin_country, dest_city=body.dest_city,
         dest_country=body.dest_country.upper(), start_date=body.start_date,
         end_date=body.end_date, is_public=body.is_public, status="processing",
+        origin_lat=body.origin_lat, origin_lng=body.origin_lng,
+        dest_lat=body.dest_lat, dest_lng=body.dest_lng,
     )
     db.add(trip)
     db.commit()

@@ -5,13 +5,35 @@ final class TripsViewModel: ObservableObject {
     @Published var trips: [Trip] = []
     @Published var loading = false
 
+    private var pollTask: Task<Void, Never>?
+
     func load() async {
         loading = true
         if let list = try? await APIClient.shared.trips() { trips = list.items }
         loading = false
+        schedulePollIfNeeded()
+    }
+
+    /// Geocoding + distance are computed asynchronously on the server, so a
+    /// freshly-added trip comes back as "processing" with no distance yet.
+    /// While any trip is still processing, quietly re-fetch every ~1.2s so the
+    /// distance appears on its own — no manual pull-to-refresh needed. Stops as
+    /// soon as nothing is processing (or after ~18s as a safety cap).
+    private func schedulePollIfNeeded() {
+        pollTask?.cancel()
+        guard trips.contains(where: { $0.status == "processing" }) else { return }
+        pollTask = Task { [weak self] in
+            for _ in 0..<15 {
+                try? await Task.sleep(nanoseconds: 1_200_000_000)
+                guard let self, !Task.isCancelled else { return }
+                if let list = try? await APIClient.shared.trips() { self.trips = list.items }
+                if !self.trips.contains(where: { $0.status == "processing" }) { return }
+            }
+        }
     }
 
     func delete(_ trip: Trip) async {
+        pollTask?.cancel()
         try? await APIClient.shared.deleteTrip(id: trip.id)
         await load()
     }
