@@ -13,26 +13,25 @@ enum TrekTheme {
         colors: [bg1, bg0], startPoint: .top, endPoint: .bottom)
 }
 
-/// Animated, subtly glowing background used behind every screen.
+/// Subtly glowing background used behind every screen.
+///
+/// The two neon blobs are rendered *once* and flattened into a single cached
+/// layer — deliberately NOT animated with `.repeatForever`. A perpetual
+/// animation would force the GPU to re-render these large blurs every frame on
+/// every screen, which pins the iOS Simulator's GPU and overheats the Mac.
 struct ScreenBackground: View {
-    @State private var drift = false
     var body: some View {
         ZStack {
             TrekTheme.gradient.ignoresSafeArea()
-            // Two soft neon blobs that slowly drift for a "dynamic" feel.
             Circle().fill(TrekTheme.accent.opacity(0.18))
-                .frame(width: 320).blur(radius: 90)
-                .offset(x: drift ? -120 : -90, y: drift ? -260 : -300)
+                .frame(width: 320).blur(radius: 60)
+                .offset(x: -110, y: -280)
             Circle().fill(TrekTheme.accent2.opacity(0.18))
-                .frame(width: 300).blur(radius: 90)
-                .offset(x: drift ? 130 : 100, y: drift ? 320 : 360)
+                .frame(width: 300).blur(radius: 60)
+                .offset(x: 120, y: 340)
         }
         .ignoresSafeArea()
-        .onAppear {
-            withAnimation(.easeInOut(duration: 9).repeatForever(autoreverses: true)) {
-                drift.toggle()
-            }
-        }
+        .drawingGroup()   // rasterize once into a cached Metal layer
     }
 }
 

@@ -8,10 +8,13 @@
 
 /* Begin PBXBuildFile section */
 		022AB73233DBC9920794BA73 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4242E3B338DF90A97962CD3E /* ProfileView.swift */; };
+		04B548DDB7636D6B46176CA3 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7EBC7CAD5660E7437DBA254 /* SettingsView.swift */; };
 		10321CDEA89B600E36C0F586 /* FeedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55AD33157253D8E894A30083 /* FeedView.swift */; };
+		16DC20DFC7233FB851B0960C /* Units.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E78D4998808CB519379C04C /* Units.swift */; };
 		21B6FBD0DD11F196C5515CD3 /* TrekRankApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47D4060192765C47C6FB0DC7 /* TrekRankApp.swift */; };
 		243EAF325D019C269A144024 /* MapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 592298E2047FD839C4E3F3CC /* MapView.swift */; };
 		3A7554456BD1B0DC01C55555 /* AuthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6B83B1874A546D3E84EE5DE /* AuthView.swift */; };
+		4D42C24ECB8C29EC5D139828 /* LocationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0818C54C08E38DAEDFB00405 /* LocationManager.swift */; };
 		50ED35AC4E29E30A272F0F23 /* AddTripView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CFDB0D932E8B399986E8527 /* AddTripView.swift */; };
 		73C96FDCC94A0500331161A1 /* Config.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CB13AD06C436DEE4B1DF57E /* Config.swift */; };
 		9E0998015E23CC029EBF2E0C /* TripsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74BBC7279CB3FE53D07CFB3B /* TripsView.swift */; };
@@ -20,10 +23,12 @@
 		D923DD5A3340E514B1D3F08A /* LeaderboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 541083F8011F2D6616D570A7 /* LeaderboardView.swift */; };
 		E610C4BA2326F559EF81BBA6 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91CF4344515F44D7B6A62BC5 /* Models.swift */; };
 		F89CD4BBA6025654B0FDF1B6 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6FACB7A73F9DA57C612CBB05 /* RootView.swift */; };
+		FB6F4F275AA80F3AA10C712A /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD39A5BD94BABF62B44F14E8 /* Theme.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		049CA414210FAAB33668AE1A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		0818C54C08E38DAEDFB00405 /* LocationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationManager.swift; sourceTree = "<group>"; };
 		1CB13AD06C436DEE4B1DF57E /* Config.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Config.swift; sourceTree = "<group>"; };
 		3CFDB0D932E8B399986E8527 /* AddTripView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTripView.swift; sourceTree = "<group>"; };
 		4242E3B338DF90A97962CD3E /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
@@ -32,9 +37,12 @@
 		541083F8011F2D6616D570A7 /* LeaderboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LeaderboardView.swift; sourceTree = "<group>"; };
 		55AD33157253D8E894A30083 /* FeedView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedView.swift; sourceTree = "<group>"; };
 		592298E2047FD839C4E3F3CC /* MapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapView.swift; sourceTree = "<group>"; };
+		6E78D4998808CB519379C04C /* Units.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Units.swift; sourceTree = "<group>"; };
 		6FACB7A73F9DA57C612CBB05 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		74BBC7279CB3FE53D07CFB3B /* TripsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripsView.swift; sourceTree = "<group>"; };
 		91CF4344515F44D7B6A62BC5 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		AD39A5BD94BABF62B44F14E8 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		C7EBC7CAD5660E7437DBA254 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		EC5CDBD64D490B8B5840B1CE /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
 		EF19F5AA6D79D6EDA6A52885 /* TrekRank.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = TrekRank.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F6B83B1874A546D3E84EE5DE /* AuthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthView.swift; sourceTree = "<group>"; };
@@ -44,6 +52,7 @@
 		2A68D7F6D46881A243EE9C6A /* Store */ = {
 			isa = PBXGroup;
 			children = (
+				0818C54C08E38DAEDFB00405 /* LocationManager.swift */,
 				4A9EC9A876EE2526C12C7E08 /* SessionStore.swift */,
 			);
 			path = Store;
@@ -62,7 +71,9 @@
 			children = (
 				1CB13AD06C436DEE4B1DF57E /* Config.swift */,
 				049CA414210FAAB33668AE1A /* Info.plist */,
+				AD39A5BD94BABF62B44F14E8 /* Theme.swift */,
 				47D4060192765C47C6FB0DC7 /* TrekRankApp.swift */,
+				6E78D4998808CB519379C04C /* Units.swift */,
 				7C30692A55D1AEF30868EC75 /* Models */,
 				A4E35DC8CA52E51F5A4AD1D5 /* Networking */,
 				2A68D7F6D46881A243EE9C6A /* Store */,
@@ -105,6 +116,7 @@
 				592298E2047FD839C4E3F3CC /* MapView.swift */,
 				4242E3B338DF90A97962CD3E /* ProfileView.swift */,
 				6FACB7A73F9DA57C612CBB05 /* RootView.swift */,
+				C7EBC7CAD5660E7437DBA254 /* SettingsView.swift */,
 				74BBC7279CB3FE53D07CFB3B /* TripsView.swift */,
 			);
 			path = Views;
@@ -171,13 +183,17 @@
 				73C96FDCC94A0500331161A1 /* Config.swift in Sources */,
 				10321CDEA89B600E36C0F586 /* FeedView.swift in Sources */,
 				D923DD5A3340E514B1D3F08A /* LeaderboardView.swift in Sources */,
+				4D42C24ECB8C29EC5D139828 /* LocationManager.swift in Sources */,
 				243EAF325D019C269A144024 /* MapView.swift in Sources */,
 				E610C4BA2326F559EF81BBA6 /* Models.swift in Sources */,
 				022AB73233DBC9920794BA73 /* ProfileView.swift in Sources */,
 				F89CD4BBA6025654B0FDF1B6 /* RootView.swift in Sources */,
 				BC562563673C809235416A48 /* SessionStore.swift in Sources */,
+				04B548DDB7636D6B46176CA3 /* SettingsView.swift in Sources */,
+				FB6F4F275AA80F3AA10C712A /* Theme.swift in Sources */,
 				21B6FBD0DD11F196C5515CD3 /* TrekRankApp.swift in Sources */,
 				9E0998015E23CC029EBF2E0C /* TripsView.swift in Sources */,
+				16DC20DFC7233FB851B0960C /* Units.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

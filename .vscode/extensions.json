@@ -1,0 +1,7 @@
+{
+  // Recommended for previewing webui/index.html directly inside VS Code.
+  // "Live Preview" renders the page in an editor tab with auto-reload.
+  "recommendations": [
+    "ms-vscode.live-server"
+  ]
+}

@@ -40,7 +40,9 @@ struct MapView: View {
                 .tag(city)
             }
         }
-        .mapStyle(hybrid ? .hybrid(elevation: .realistic) : .standard(elevation: .flat))
+        // Flat elevation only — `.realistic` 3D elevation is extremely GPU-heavy
+        // in the Simulator and was a major source of overheating.
+        .mapStyle(hybrid ? .hybrid(elevation: .flat) : .standard(elevation: .flat))
         .mapControls {
             MapCompass()
             MapScaleView()
@@ -85,7 +87,7 @@ struct MapView: View {
                 .font(.system(size: 18, weight: .semibold))
                 .frame(width: 44, height: 44)
                 .background(.ultraThinMaterial, in: Circle())
-                .foregroundStyle(active ? TrekTheme.accent : .primary)
+                .foregroundStyle(active ? TrekTheme.accent : Color.primary)
                 .overlay(Circle().stroke(.white.opacity(0.15), lineWidth: 1))
                 .shadow(color: .black.opacity(0.2), radius: 6, y: 3)
         }
@@ -177,27 +179,23 @@ struct MapView: View {
     }
 }
 
-/// A pulsing pin whose size reflects how many times a city was visited.
+/// A pin whose size reflects how many times a city was visited.
+///
+/// Deliberately static (no `.repeatForever` pulse): each visible pin would
+/// otherwise run its own perpetual animation, and with many cities on screen
+/// that multiplies into constant GPU work that overheats the Simulator.
 struct CityPin: View {
     let visits: Int
-    @State private var pulse = false
 
     private var size: CGFloat { min(14 + CGFloat(visits) * 3, 30) }
 
     var body: some View {
         ZStack {
-            Circle().fill(TrekTheme.accent.opacity(0.25))
-                .frame(width: size * 2, height: size * 2)
-                .scaleEffect(pulse ? 1.0 : 0.5)
-                .opacity(pulse ? 0 : 0.8)
+            Circle().fill(TrekTheme.accent.opacity(0.22))
+                .frame(width: size * 1.7, height: size * 1.7)
             Circle().fill(TrekTheme.accent).frame(width: size, height: size)
                 .overlay(Circle().stroke(.white, lineWidth: 2))
                 .shadow(radius: 3)
-        }
-        .onAppear {
-            withAnimation(.easeOut(duration: 1.6).repeatForever(autoreverses: false)) {
-                pulse = true
-            }
         }
     }
 }

@@ -106,7 +106,7 @@ struct ProfileView: View {
                 ForEach(vm.badges) { badge in
                     HStack {
                         Image(systemName: badge.earned ? "rosette" : "lock.fill")
-                            .foregroundStyle(badge.earned ? TrekTheme.accent : .secondary)
+                            .foregroundStyle(badge.earned ? TrekTheme.accent : Color.secondary)
                         VStack(alignment: .leading) {
                             Text(badge.name).font(.subheadline.bold())
                             Text(badge.description).font(.caption2).foregroundStyle(.secondary)

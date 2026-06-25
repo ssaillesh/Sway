@@ -156,7 +156,7 @@ struct PersonRow: View {
                         .padding(.horizontal, 12).padding(.vertical, 7)
                         .background(requested ? Color.gray.opacity(0.25) : TrekTheme.accent,
                                     in: Capsule())
-                        .foregroundStyle(requested ? .secondary : .black)
+                        .foregroundStyle(requested ? Color.secondary : Color.black)
                 }
                 .disabled(requested)
             }

@@ -1,0 +1,44 @@
+{
+  // Run TrekRank locally from VS Code.
+  //   Terminal ▸ Run Task…  (or ⇧⌘B for the default build task)
+  //
+  // "TrekRank: Web App" starts both the API and the static web UI, then you can
+  // open http://127.0.0.1:8080 in VS Code's Simple Browser
+  // (⇧⌘P ▸ "Simple Browser: Show") or any browser.
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "TrekRank: API",
+      "type": "shell",
+      "command": "./run_local.sh api",
+      "options": { "cwd": "${workspaceFolder}/backend" },
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "group": "trekrank",
+        "panel": "dedicated",
+        "reveal": "always"
+      }
+    },
+    {
+      "label": "TrekRank: Web UI",
+      "type": "shell",
+      "command": "python3 -m http.server 8080",
+      "options": { "cwd": "${workspaceFolder}/webui" },
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "group": "trekrank",
+        "panel": "dedicated",
+        "reveal": "always"
+      }
+    },
+    {
+      "label": "TrekRank: Web App",
+      "dependsOn": ["TrekRank: API", "TrekRank: Web UI"],
+      "dependsOrder": "parallel",
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": []
+    }
+  ]
+}

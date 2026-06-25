@@ -8,7 +8,6 @@ import Combine
 final class LocationManager: NSObject, ObservableObject {
     @Published var location: CLLocationCoordinate2D?
     @Published var authorization: CLAuthorizationStatus
-    @Published var heading: CLLocationDirection?
 
     private let manager = CLLocationManager()
 
@@ -16,8 +15,11 @@ final class LocationManager: NSObject, ObservableObject {
         authorization = manager.authorizationStatus
         super.init()
         manager.delegate = self
-        manager.desiredAccuracy = kCLLocationAccuracyBest
-        manager.distanceFilter = 10 // meters
+        // A "you are here" dot doesn't need pinpoint accuracy. Best-accuracy GPS
+        // plus compass heading ran the location/sensor stack continuously, which
+        // added heat with no UI benefit — heading wasn't used anywhere.
+        manager.desiredAccuracy = kCLLocationAccuracyHundredMeters
+        manager.distanceFilter = 50 // meters
     }
 
     /// Ask for permission (if needed) and start streaming updates.
@@ -27,7 +29,6 @@ final class LocationManager: NSObject, ObservableObject {
             manager.requestWhenInUseAuthorization()
         case .authorizedWhenInUse, .authorizedAlways:
             manager.startUpdatingLocation()
-            manager.startUpdatingHeading()
         default:
             break
         }
@@ -35,7 +36,6 @@ final class LocationManager: NSObject, ObservableObject {
 
     func stop() {
         manager.stopUpdatingLocation()
-        manager.stopUpdatingHeading()
     }
 
     var isAuthorized: Bool {
@@ -54,7 +54,6 @@ extension LocationManager: CLLocationManagerDelegate {
             self.authorization = status
             if status == .authorizedWhenInUse || status == .authorizedAlways {
                 manager.startUpdatingLocation()
-                manager.startUpdatingHeading()
             }
         }
     }
@@ -63,11 +62,6 @@ extension LocationManager: CLLocationManagerDelegate {
         guard let loc = locations.last else { return }
         let coord = loc.coordinate
         Task { @MainActor in self.location = coord }
-    }
-
-    nonisolated func locationManager(_ manager: CLLocationManager, didUpdateHeading newHeading: CLHeading) {
-        let h = newHeading.trueHeading >= 0 ? newHeading.trueHeading : newHeading.magneticHeading
-        Task { @MainActor in self.heading = h }
     }
 
     nonisolated func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
