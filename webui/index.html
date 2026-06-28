@@ -67,7 +67,8 @@
   header.nav.scrolled{background:rgba(7,11,24,.72); backdrop-filter:blur(16px) saturate(140%);
     border-bottom-color:var(--card-brd);}
   .nav-inner{display:flex; align-items:center; justify-content:space-between; height:64px;}
-  .logo{display:flex; align-items:center; gap:10px; font-weight:850; font-size:20px; letter-spacing:-.02em;}
+  .logo{display:inline-flex; align-items:center; font-weight:850; font-size:20px; letter-spacing:-.02em;}
+  .logo .dot{color:var(--accent);}
   .logo .mark{width:30px; height:30px; border-radius:9px;
     background:conic-gradient(from 200deg,var(--accent),var(--accent2),var(--accent));
     display:grid; place-items:center; font-size:16px; box-shadow:0 6px 18px rgba(94,235,212,.4);}
@@ -371,7 +372,7 @@
 <!-- ================= NAV ================= -->
 <header class="nav" id="nav">
   <div class="wrap nav-inner">
-    <a class="logo" href="#top"><span class="mark">🧭</span> TrekRank</a>
+    <a class="logo" href="#top">Trek<span class="dot">·</span>Rank</a>
     <nav class="nav-links">
       <a href="#problem">Why</a>
       <a href="#map">Verified Miles</a>
@@ -694,7 +695,7 @@
 
 <footer>
   <div class="wrap foot-inner">
-    <div class="logo"><span class="mark">🧭</span> TrekRank</div>
+    <div class="logo">Trek<span class="dot">·</span>Rank</div>
     <div class="foot-links">
       <a href="#problem">Why</a><a href="#ranks">Ranks</a><a href="#badges">Badges</a><a href="#early">Early Access</a>
     </div>
