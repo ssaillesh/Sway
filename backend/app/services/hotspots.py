@@ -31,8 +31,19 @@ CANADA_CITIES = {
 # Each category maps to a list of Overpass tag selectors. We query nodes (and the
 # centre of ways) so we get coordinates for everything.
 CATEGORIES = {
+    "food": {
+        "label": "Eat", "icon": "🍽️",
+        "selectors": ['"amenity"="restaurant"', '"amenity"="cafe"', '"amenity"="fast_food"',
+                      '"amenity"="ice_cream"', '"shop"="bakery"'],
+    },
+    "activities": {
+        "label": "Things to do", "icon": "🎟️",
+        "selectors": ['"tourism"="attraction"', '"tourism"="theme_park"', '"tourism"="gallery"',
+                      '"leisure"="park"', '"amenity"="cinema"', '"amenity"="theatre"',
+                      '"leisure"="bowling_alley"'],
+    },
     "party": {
-        "label": "Party life", "icon": "🎉",
+        "label": "Nightlife", "icon": "🎉",
         "selectors": ['"amenity"="nightclub"', '"amenity"="bar"', '"amenity"="pub"'],
     },
     "nature": {
@@ -51,16 +62,16 @@ CATEGORIES = {
 _CACHE_TTL = 60 * 60 * 24 * 7  # 7 days — POIs barely move
 
 
-def _build_query(category: str, city: dict) -> str:
+def _build_query(category: str, lat: float, lng: float, rad: int) -> str:
     sel = CATEGORIES[category]["selectors"]
-    lat, lng, rad = city["lat"], city["lng"], city["radius"]
     parts = []
     for s in sel:
         parts.append(f'node[{s}](around:{rad},{lat},{lng});')
         parts.append(f'way[{s}](around:{rad},{lat},{lng});')
     body = "\n".join(parts)
     # `out center` gives ways a representative lat/lng; tags come along for names.
-    return f"[out:json][timeout:25];\n({body}\n);\nout center tags 60;"
+    # A high cap means a larger radius reliably returns more (client sorts by distance).
+    return f"[out:json][timeout:25];\n({body}\n);\nout center tags 200;"
 
 
 def _normalise(elements: list, category: str) -> list[dict]:
@@ -99,16 +110,31 @@ def _normalise(elements: list, category: str) -> list[dict]:
     return out
 
 
-def fetch_hotspots(category: str, city_key: str) -> list[dict]:
-    """Return normalised hotspots for a category + Canadian city (Redis-cached)."""
-    if category not in CATEGORIES or city_key not in CANADA_CITIES:
+def fetch_hotspots(category: str, *, city_key: str | None = None,
+                   lat: float | None = None, lng: float | None = None,
+                   radius: int = 3000) -> list[dict]:
+    """Return normalised hotspots for a category, around either a preset Canadian
+    city or arbitrary lat/lng (e.g. the user's exact location). Redis-cached."""
+    if category not in CATEGORIES:
         return []
-    cache_key = f"hotspots:v2:{city_key}:{category}"
+    if city_key:
+        city = CANADA_CITIES.get(city_key)
+        if not city:
+            return []
+        lat, lng, radius = city["lat"], city["lng"], city["radius"]
+        cache_key = f"hotspots:v4:{city_key}:{category}"
+    elif lat is not None and lng is not None:
+        radius = max(500, min(radius, 8000))
+        # Round coords to ~1km so nearby requests share a cache entry.
+        cache_key = f"hotspots:v4:{round(lat, 2)}:{round(lng, 2)}:{radius}:{category}"
+    else:
+        return []
+
     cached = redis_client.get(cache_key)
     if cached is not None:
         return json.loads(cached)
 
-    query = _build_query(category, CANADA_CITIES[city_key])
+    query = _build_query(category, lat, lng, radius)
     elements = None
     for endpoint in OVERPASS_ENDPOINTS:
         try:

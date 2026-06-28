@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>TrekRank — Your World, Verified</title>
-<meta name="description" content="An interactive 3D globe of everywhere you've actually been — plus hand-picked hidden gems and experiences to explore next." />
+<meta name="description" content="An interactive map of everywhere you've actually been — plus hand-picked hidden gems and experiences to explore next." />
 <meta name="theme-color" content="#070b18" />
 <meta property="og:title" content="TrekRank — Your World, Verified" />
 <meta property="og:description" content="Your verified travel map + a world of hidden gems to discover." />
@@ -16,8 +16,8 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
-<script defer src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
-<script defer src="https://unpkg.com/globe.gl@2.32.0/dist/globe.gl.min.js"></script>
+<!-- Globe (three.js / globe.gl) intentionally removed — this app is map-only now.
+     The standalone globe experience is preserved in globe.html for future web design. -->
 
 <style>
   :root{
@@ -44,7 +44,6 @@
   button{font-family:inherit;}
   .grad{background:linear-gradient(110deg,var(--accent),var(--accent2)); -webkit-background-clip:text;
     background-clip:text; color:transparent;}
-  #globe{position:fixed; inset:0; z-index:0;}
   #map{position:fixed; inset:0; z-index:1; background:var(--bg2);}
   .main-toggle{position:fixed; right:20px; bottom:22px; left:auto; top:auto; z-index:16;}
   .locate-btn{position:fixed; right:20px; bottom:74px; z-index:16; width:46px; height:46px; border-radius:50%;
@@ -75,13 +74,35 @@
   .leaflet-popup-content-wrapper{border:1px solid var(--card-brd) !important; border-radius:14px !important;}
 
   /* ---------- verified travel pin (your uploaded photos) ---------- */
-  .vpin{position:relative; transform:translate(-50%,-50%); cursor:pointer;}
-  .vpin .core{width:18px; height:18px; border-radius:50%;
-    background:radial-gradient(circle at 32% 30%, #aef7ec, var(--accent));
-    border:2px solid #fff; box-shadow:0 0 0 4px rgba(94,235,212,.25), 0 3px 10px rgba(0,0,0,.5);}
-  .vpin .ring{position:absolute; inset:-6px; border-radius:50%; border:2px solid var(--accent);
-    opacity:.6; animation:pulse 2.4s var(--ease-soft) infinite;}
-  @keyframes pulse{0%{transform:scale(.7); opacity:.7;} 70%{opacity:0;} 100%{transform:scale(1.9); opacity:0;}}
+  .vpin{width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    font-size:15px; cursor:pointer; background:radial-gradient(circle at 32% 28%, #aef7ec, var(--accent));
+    border:2px solid #fff; box-shadow:0 0 0 4px rgba(94,235,212,.22), 0 3px 10px rgba(0,0,0,.5);
+    transition:transform .15s var(--ease);}
+  .vpin:hover{transform:scale(1.18);}
+  .home-pin{width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    font-size:16px; background:radial-gradient(circle at 32% 28%, #ffe39a, var(--gold));
+    border:2px solid #fff; box-shadow:0 0 0 4px rgba(255,209,102,.22), 0 3px 10px rgba(0,0,0,.5);}
+
+  /* ---------- custom zoom buttons (bottom-right, off the logo) ---------- */
+  .zoom-ctrl{position:fixed; right:20px; bottom:128px; z-index:16; display:flex; flex-direction:column;
+    border-radius:14px; overflow:hidden; box-shadow:var(--shadow); border:1px solid var(--card-brd);}
+  .zoom-ctrl button{width:46px; height:42px; border:0; background:rgba(10,16,34,.85); color:var(--text);
+    font-size:22px; font-weight:600; cursor:pointer; backdrop-filter:blur(14px); transition:background .2s;}
+  .zoom-ctrl button:first-child{border-bottom:1px solid var(--hair);}
+  .zoom-ctrl button:hover{background:rgba(94,235,212,.18);}
+
+  /* ---------- home control in the My Trips panel ---------- */
+  .homerow{background:rgba(255,209,102,.08); border:1px solid rgba(255,209,102,.25); border-radius:14px;
+    padding:12px 14px; margin-bottom:14px; font-size:13px;}
+  .homerow .lbl{display:flex; align-items:center; gap:8px; color:var(--text); font-weight:650;}
+  .homerow .lbl .edit{margin-left:auto; color:var(--gold); cursor:pointer; font-weight:700; font-size:12px;}
+  .homerow input{width:100%; margin-top:10px; padding:10px 12px; border-radius:10px; border:1px solid var(--card-brd);
+    background:rgba(255,255,255,.05); color:var(--text); font-size:14px; outline:none;}
+  .homerow input:focus{border-color:var(--gold);}
+  .homerow .row2{display:flex; gap:8px; margin-top:8px;}
+  .homerow .mini{flex:1; text-align:center; padding:9px; border-radius:10px; border:1px solid var(--card-brd);
+    background:rgba(255,255,255,.04); color:var(--text); font-size:12px; font-weight:700; cursor:pointer;}
+  .homerow .mini:hover{background:rgba(255,255,255,.09);}
 
   /* ---------- top bar ---------- */
   .topbar{position:fixed; top:0; left:0; right:0; z-index:20; display:flex; align-items:center;
@@ -217,6 +238,18 @@
     background:rgba(255,255,255,.04); color:var(--text); font-size:14px; font-weight:600; outline:none;
     margin-bottom:12px; cursor:pointer;}
   .hsSelect:focus{border-color:var(--accent);}
+  .radius-row{margin:0 0 14px;}
+  .radius-row label{display:block; font-size:12px; color:var(--muted); margin-bottom:8px; font-weight:600;}
+  .radius-row label b{color:var(--accent); font-weight:800;}
+  .radius-row input[type=range]{width:100%; -webkit-appearance:none; appearance:none; height:5px; border-radius:99px;
+    background:rgba(255,255,255,.12); outline:none;}
+  .radius-row input[type=range]::-webkit-slider-thumb{-webkit-appearance:none; appearance:none; width:18px; height:18px;
+    border-radius:50%; background:radial-gradient(circle at 32% 28%, #aef7ec, var(--accent)); border:2px solid #fff;
+    box-shadow:0 2px 8px rgba(0,0,0,.5); cursor:pointer;}
+  .radius-row input[type=range]::-moz-range-thumb{width:16px; height:16px; border-radius:50%; background:var(--accent);
+    border:2px solid #fff; cursor:pointer;}
+  .hs .meta .dist{display:inline-block; margin-top:5px; font-size:11px; font-weight:800; color:var(--accent);
+    background:rgba(94,235,212,.12); padding:3px 8px; border-radius:999px;}
   .hs{display:flex; gap:12px; padding:11px; border-radius:14px; cursor:pointer; transition:.15s; border:1px solid transparent;}
   .hs:hover{background:rgba(255,255,255,.05); border-color:var(--card-brd);}
   .hs .pin{width:32px; height:32px; flex:0 0 auto; border-radius:9px; display:flex; align-items:center; justify-content:center; font-size:15px;}
@@ -273,37 +306,36 @@
 </style>
 </head>
 <body>
-  <div id="globe"></div>
-
   <!-- TOP BAR -->
   <div class="topbar">
-    <div class="logo">Trek<span class="dot">·</span>Rank</div>
+    <a class="logo" href="/" title="Back to TrekRank home">Trek<span class="dot">·</span>Rank</a>
     <div class="nav">
-      <button data-view="globe" class="active">🌐 My Globe</button>
+      <button data-view="globe" class="active">📍 My Trips</button>
       <button data-view="discover">✦ Discover</button>
       <button data-view="hotspots">📡 Hotspots</button>
-    </div>
-    <div class="nav" id="modeToggle">
-      <button id="modeGlobe" class="active" data-mode="globe">🌐 Globe</button>
-      <button id="modeMap" data-mode="map">🗺 Map</button>
     </div>
     <div class="spacer"></div>
     <div id="userChip" class="chip hidden"><span class="av" id="avatar">?</span><span id="chipName">—</span></div>
     <button class="btn" id="openUpload">＋ Upload</button>
   </div>
 
-  <!-- Full Google-Maps-style 2D map (zoom world → street). Hidden until Map mode. -->
-  <div id="map" class="hidden"></div>
-  <div class="map-toggle main-toggle hidden" id="mainBasemap">
+  <!-- Full Google-Maps-style 2D map (zoom world → street). The only view now. -->
+  <div id="map"></div>
+  <div class="map-toggle main-toggle" id="mainBasemap">
     <button id="bmStreet" class="active" onclick="setMainBasemap('street')">Map</button>
     <button id="bmSat" onclick="setMainBasemap('satellite')">Satellite</button>
   </div>
-  <button class="locate-btn hidden" id="locateBtn" title="Recenter on my location" onclick="recenterMe()">📍</button>
+  <button class="locate-btn" id="locateBtn" title="Recenter on my location" onclick="recenterMe()">📍</button>
+  <div class="zoom-ctrl" id="zoomCtrl">
+    <button title="Zoom in" onclick="mapZoom(1)">+</button>
+    <button title="Zoom out" onclick="mapZoom(-1)">−</button>
+  </div>
 
-  <!-- SIDE PANEL: MY GLOBE -->
+  <!-- SIDE PANEL: MY TRIPS -->
   <div class="panel" id="panelGlobe">
-    <div class="head"><h2 id="gHead">Your world</h2><p id="gSub">Verified from your photos</p></div>
+    <div class="head"><h2 id="gHead">Your trips</h2><p id="gSub">Verified from your photos</p></div>
     <div class="body">
+      <div class="homerow" id="homeRow"></div>
       <div id="gStats" class="hidden">
         <div class="stats">
           <div class="stat"><b id="sCountries">0</b><span>Countries</span></div>
@@ -337,13 +369,17 @@
   <!-- SIDE PANEL: HOTSPOTS -->
   <div class="panel hidden" id="panelHotspots">
     <div class="head">
-      <h2>Hotspots <span style="font-size:12px;color:var(--muted2);font-weight:600">· Canada</span></h2>
-      <p>Live places to go, pulled free from OpenStreetMap.</p>
+      <h2>Hotspots</h2>
+      <p>Places to eat & things to do near you — free from OpenStreetMap, with Yelp & Google links on every spot.</p>
     </div>
     <div class="body">
       <select id="citySelect" class="hsSelect"></select>
+      <div class="radius-row hidden" id="radiusRow">
+        <label>Within <b id="radiusVal">3</b> km</label>
+        <input type="range" id="radiusSlider" min="1" max="8" step="1" value="3" />
+      </div>
       <div class="filters" id="hsFilters"></div>
-      <div id="hsList"><div class="empty"><div class="ic">📡</div><p>Pick a city and a vibe.</p></div></div>
+      <div id="hsList"><div class="empty"><div class="ic">📡</div><p>Pick a category to see places near you.</p></div></div>
     </div>
   </div>
 
@@ -383,7 +419,7 @@
       <span class="x" onclick="closeUpload()">×</span>
 
       <div id="authBox">
-        <h2>Build your <span class="grad">globe</span></h2>
+        <h2>Build your <span class="grad">map</span></h2>
         <p class="lead">Sign in, drop in geotagged photos, and watch your verified map grow.</p>
         <div class="mtabs">
           <div class="t active" data-tab="login">Sign in</div>
@@ -409,7 +445,7 @@
         <input id="fileInput" type="file" accept="image/*" multiple class="hidden" />
         <div class="files" id="fileList"></div>
         <div class="bar" id="bar"><i></i></div>
-        <button class="mbtn" id="uploadBtn" disabled>Add to my globe</button>
+        <button class="mbtn" id="uploadBtn" disabled>Add to my map</button>
         <div class="msg" id="upMsg"></div>
         <div class="note">Screenshots and social-media downloads usually have GPS stripped, so they won't plot. Photos straight from a phone camera do.</div>
       </div>
@@ -430,78 +466,14 @@ const store = {
   clear(){ localStorage.removeItem('trek_token'); localStorage.removeItem('trek_user'); },
 };
 
-let world, gems = [], travelPoints = [], activeFilter = 'All';
+let gems = [], travelPoints = [], activeFilter = 'All';
 let activeView = 'globe';
-let hotspots = [], hsMeta = null, hsCity = 'toronto', hsCategory = 'party';
-const tip = $('tip');
+let hotspots = [], hsMeta = null, hsCity = '__here__', hsCategory = 'food', hsRadius = 3, nearbyAll = [];
+const HS_COLOR = { food:'#ff8c42', activities:'#a78bfa', party:'#ff7a9c', nature:'#5eebd4', history:'#ffd166' };
+const HS_ICON  = { food:'🍽️', activities:'🎟️', party:'🎉', nature:'🌿', history:'🏛️' };
 
-/* ===================== GLOBE ===================== */
-function initGlobe(){
-  world = Globe()(document.getElementById('globe'))
-    .globeImageUrl('//unpkg.com/three-globe@2.31.0/example/img/earth-night.jpg')
-    .bumpImageUrl('//unpkg.com/three-globe@2.31.0/example/img/earth-topology.png')
-    .backgroundColor('rgba(0,0,0,0)')
-    .atmosphereColor('#5eebd4').atmosphereAltitude(0.18)
-    .pointLat('lat').pointLng('lng').pointAltitude(0.012).pointRadius(0.32)
-    .pointColor(d => d.source === 'exif' ? '#5eebd4' : '#ffd166')
-    .onPointHover(hoverPoint)
-    .arcColor(() => ['rgba(94,235,212,0.25)','rgba(115,140,255,0.5)'])
-    .arcAltitudeAutoScale(0.35).arcStroke(0.4)
-    .arcDashLength(0.5).arcDashGap(0.25).arcDashAnimateTime(3500)
-    .htmlLat('lat').htmlLng('lng').htmlAltitude(0.012)
-    .htmlElement(overlayMarker);
-  const c = world.controls();
-  c.autoRotate = true; c.autoRotateSpeed = 0.45; c.enableDamping = true;
-  $('globe').addEventListener('pointerdown', () => c.autoRotate = false);
-  window.addEventListener('resize', () => world.width(innerWidth).height(innerHeight));
-}
-
-const HS_COLOR = { party:'#ff7a9c', nature:'#5eebd4', history:'#ffd166' };
-const HS_ICON  = { party:'🎉', nature:'🌿', history:'🏛️' };
-
-// One renderer for the htmlElements layer; branches on item kind.
-function overlayMarker(d){
-  if (d.kind === 'hotspot'){
-    const el = document.createElement('div');
-    el.className = 'hs-marker'; el.textContent = HS_ICON[d.category] || '📍'; el.title = d.name;
-    el.onclick = (e) => { e.stopPropagation(); world.controls().autoRotate=false; openHotspot(d); };
-    el.onmouseenter = (e) => showTip(`<span class="tag" style="color:${HS_COLOR[d.category]}">${escapeHtml(d.subtype||d.category)}</span><div class="cap">${escapeHtml(d.name)}</div>`, e);
-    el.onmousemove = moveTip; el.onmouseleave = hideTip;
-    return el;
-  }
-  const el = document.createElement('div');
-  el.className = 'gem-marker'; el.textContent = '✦'; el.title = d.name;
-  el.onclick = (e) => { e.stopPropagation(); world.controls().autoRotate = false; openGem(d); };
-  el.onmouseenter = (e) => showTip(`<span class="tag gem">${escapeHtml(d.category)}</span><div class="cap">${escapeHtml(d.name)}</div><div class="when">${escapeHtml(d.country)}</div>`, e);
-  el.onmousemove = moveTip;
-  el.onmouseleave = hideTip;
-  return el;
-}
-
-// The htmlElements layer shows different data per active view.
-function renderOverlay(){
-  if (activeView === 'hotspots') world.htmlElementsData(hotspots);
-  else world.htmlElementsData(currentList());   // gems (filtered / near-me)
-  if (mapMode === 'map') renderMapMarkers();
-}
-
-function hoverPoint(pt){
-  if (!pt){ hideTip(); return; }
-  const cls = pt.source === 'exif' ? 'exif' : 'manual';
-  const label = pt.source === 'exif' ? 'Verified' : 'Self-reported';
-  const when = pt.captured_at ? new Date(pt.captured_at).toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'}) : '';
-  const where = [pt.place, pt.country].filter(Boolean).join(', ');
-  showTip(`<span class="tag ${cls}">${label}</span>`
-    + (where?`<div class="cap">${escapeHtml(where)}</div>`:(pt.caption?`<div class="cap">${escapeHtml(pt.caption)}</div>`:''))
-    + (when?`<div class="when">${when}</div>`:''));
-}
-
-function showTip(html, e){ tip.innerHTML = html; tip.style.display = 'block'; if (e) moveTip(e); }
-function moveTip(e){ tip.style.left = (e.clientX+14)+'px'; tip.style.top = (e.clientY+14)+'px'; }
-function hideTip(){ tip.style.display = 'none'; }
-document.addEventListener('mousemove', e => { if (tip.style.display==='block') moveTip(e); });
-
-function flyTo(lat,lng,alt=1.6){ world.controls().autoRotate=false; world.pointOfView({lat,lng,altitude:alt},1100); }
+// The map (Leaflet) is the only renderer now; this just refreshes its markers.
+function renderOverlay(){ renderMapMarkers(); }
 
 /* ===================== TRAVEL DATA ===================== */
 async function loadTravel(){
@@ -510,23 +482,9 @@ async function loadTravel(){
   try{
     const g = await fetch(`${API_BASE}/users/${encodeURIComponent(u)}/globe`).then(r=>r.json());
     travelPoints = g.points || [];
-    world.pointsData(travelPoints);
-    // time-ordered route arcs
-    const arcs = [];
-    for (let i=1;i<travelPoints.length;i++){
-      const a=travelPoints[i-1], b=travelPoints[i];
-      if (a.lat===b.lat && a.lng===b.lng) continue;
-      arcs.push({startLat:a.lat,startLng:a.lng,endLat:b.lat,endLng:b.lng});
-    }
-    world.arcsData(arcs);
     renderStats(g);
-    if (mapMode === 'map' && activeView === 'globe') renderMapMarkers();
+    if (activeView === 'globe') renderMapMarkers();
     if (gems.length) buildFilters();  // surfaces the "Near me" filter now travel is known
-    if (travelPoints.length){
-      const cLat=travelPoints.reduce((s,p)=>s+p.lat,0)/travelPoints.length;
-      const cLng=travelPoints.reduce((s,p)=>s+p.lng,0)/travelPoints.length;
-      flyTo(cLat,cLng,2.2);
-    }
   }catch(e){ renderStats(null); }
 }
 
@@ -645,9 +603,11 @@ function openGem(g){
 async function loadHotspotMeta(){
   hsMeta = await fetch(`${API_BASE}/hotspots/meta`).then(r=>r.json()).catch(()=>null);
   if (!hsMeta) return;
-  $('citySelect').innerHTML = hsMeta.cities.map(c =>
-    `<option value="${c.key}" ${c.key===hsCity?'selected':''}>${escapeHtml(c.label)}</option>`).join('');
-  $('citySelect').onchange = () => { hsCity = $('citySelect').value; loadHotspots(); };
+  $('citySelect').innerHTML =
+    `<option value="__here__" ${hsCity==='__here__'?'selected':''}>📍 Near me (current location)</option>`
+    + hsMeta.cities.map(c =>
+      `<option value="${c.key}" ${c.key===hsCity?'selected':''}>${escapeHtml(c.label)}</option>`).join('');
+  $('citySelect').onchange = () => { hsCity = $('citySelect').value; syncRadiusRow(); loadHotspots(); };
   $('hsFilters').innerHTML = hsMeta.categories.map(c =>
     `<button class="${c.key===hsCategory?'active':''}" data-cat="${c.key}">${c.icon} ${escapeHtml(c.label)}</button>`).join('');
   $('hsFilters').querySelectorAll('button').forEach(b => b.onclick = () => {
@@ -655,19 +615,70 @@ async function loadHotspotMeta(){
     $('hsFilters').querySelectorAll('button').forEach(x=>x.classList.toggle('active', x===b));
     loadHotspots();
   });
+
+  // Radius slider — only relevant for "Near me". Live label, reload when released.
+  const slider = $('radiusSlider');
+  slider.value = hsRadius;
+  // Filter the already-fetched nearby set live as you drag — no refetch.
+  slider.oninput = () => {
+    hsRadius = +slider.value; $('radiusVal').textContent = hsRadius;
+    if (hsCity==='__here__') (nearbyAll.length ? applyRadius() : loadHotspots());
+  };
+  syncRadiusRow();
+}
+
+function syncRadiusRow(){ $('radiusRow').classList.toggle('hidden', hsCity!=='__here__'); }
+
+// "450 m away" / "1.2 km away"
+function fmtDist(m){
+  if (m == null) return '';
+  return m < 1000 ? `${Math.round(m/10)*10} m away` : `${(m/1000).toFixed(1)} km away`;
+}
+
+// Filter the fetched nearby set by the slider radius (client-side, instant).
+function radiusZoom(km){ return Math.max(12, 15 - Math.floor(Math.log2(km))); }  // 1→15 … 8→12
+function applyRadius(){
+  if (!userLoc) return;
+  hotspots = nearbyAll.filter(h => haversineKm(userLoc, h) <= hsRadius);
+  renderHotspots({});
+  if (activeView==='hotspots'){
+    renderOverlay();
+    ensureMainMap();
+    mainMap.setView([userLoc.lat, userLoc.lng], radiusZoom(hsRadius));
+  }
 }
 
 async function loadHotspots(){
-  $('hsList').innerHTML = `<div class="loading"><div class="sp"></div>Pulling live spots…</div>`;
-  if (activeView==='hotspots') world.htmlElementsData([]);  // clear stale markers while loading
+  const here = hsCity === '__here__';
+  $('hsList').innerHTML = `<div class="loading"><div class="sp"></div>${here?'Finding spots near you…':'Pulling live spots…'}</div>`;
+  if (activeView==='hotspots' && mainMarkers) mainMarkers.clearLayers();
+
+  if (here){
+    await ensureUserLoc();
+    if (!userLoc){
+      $('hsList').innerHTML = `<div class="empty"><div class="ic">📍</div><p>Turn on location to see places to eat and things to do near you — or pick a city above.</p></div>`;
+      return;
+    }
+    try{
+      // Fetch the max radius once, then the slider filters it locally.
+      const d = await fetch(`${API_BASE}/hotspots?lat=${userLoc.lat}&lng=${userLoc.lng}&radius=8000&category=${hsCategory}`).then(r=>r.json());
+      nearbyAll = (d.hotspots||[]).map(h => ({ ...h, kind:'hotspot' }));
+      applyRadius();
+    }catch(e){
+      $('hsList').innerHTML = `<div class="empty"><div class="ic">⚠️</div><p>Couldn't reach the hotspot service.</p></div>`;
+    }
+    return;
+  }
+
   try{
     const d = await fetch(`${API_BASE}/hotspots?city=${hsCity}&category=${hsCategory}`).then(r=>r.json());
     hotspots = (d.hotspots||[]).map(h => ({ ...h, kind:'hotspot' }));
     renderHotspots(d);
     if (activeView==='hotspots'){
       renderOverlay();
-      const city = hsMeta && hsMeta.cities.find(c=>c.key===hsCity);
-      if (city) flyTo(city.lat, city.lng, 0.65);
+      ensureMainMap();
+      const c = hsMeta && hsMeta.cities.find(x=>x.key===hsCity);
+      if (c) mainMap.setView([c.lat, c.lng], CITY_ZOOM);
     }
   }catch(e){
     $('hsList').innerHTML = `<div class="empty"><div class="ic">⚠️</div><p>Couldn't reach the hotspot service.</p></div>`;
@@ -679,24 +690,32 @@ function renderHotspots(d){
     $('hsList').innerHTML = `<div class="empty"><div class="ic">🤷</div><p>No ${escapeHtml(hsCategory)} spots found here yet.</p></div>`;
     return;
   }
+  // For "Near me", attach distance from the user and show the closest first.
+  const here = hsCity==='__here__' && userLoc;
+  if (here){
+    hotspots.forEach(h => h._dist = haversineKm(userLoc, h) * 1000);
+    hotspots.sort((a,b) => a._dist - b._dist);
+  }
   $('hsList').innerHTML = hotspots.map((h,i) =>
     `<div class="hs" data-i="${i}">
       <div class="pin" style="background:${HS_COLOR[h.category]}22">${HS_ICON[h.category]||'📍'}</div>
-      <div class="meta"><b>${escapeHtml(h.name)}</b><span class="loc">${escapeHtml(h.subtype||h.category)}${h.address?' · '+escapeHtml(h.address):''}</span></div>
+      <div class="meta"><b>${escapeHtml(h.name)}</b>
+        <span class="loc">${escapeHtml((h.subtype||h.category).replace(/_/g,' '))}${h.address?' · '+escapeHtml(h.address):''}</span>
+        ${here?`<span class="dist">📍 ${fmtDist(h._dist)}</span>`:''}</div>
     </div>`).join('');
   $('hsList').querySelectorAll('.hs').forEach(el => el.onclick = () => openHotspot(hotspots[+el.dataset.i]));
 }
 
 function openHotspot(h){
   focusLocation(h.lat, h.lng, 0.5);
-  const cityLabel = (hsMeta && hsMeta.cities.find(c=>c.key===hsCity)||{}).label || '';
+  const cityLabel = (hsMeta && hsMeta.cities.find(c=>c.key===hsCity)||{}).label || 'your area';
   // OSM "wikipedia" tag looks like "en:Casa Loma" — strip the language prefix.
   const wikiTitle = h.wikipedia ? h.wikipedia.split(':').slice(1).join(':') : null;
   openSpot({
     name: h.name, lat: h.lat, lng: h.lng,
     cat: h.subtype || h.category, catColor: HS_COLOR[h.category] || 'var(--gem)',
-    sub: h.address || cityLabel,
-    blurb: `${HS_ICON[h.category]||''} A ${h.subtype||h.category} in ${cityLabel}, sourced live from OpenStreetMap.`,
+    sub: h.address || (cityLabel==='your area' ? '' : cityLabel),
+    blurb: `${HS_ICON[h.category]||''} A ${(h.subtype||h.category).replace(/_/g,' ')} in ${cityLabel}. Tap Reviews on Yelp or Open in Maps for ratings.`,
     website: h.website, wikiTitle, image: h.image,
     needStreet: !h.address,
   });
@@ -822,23 +841,36 @@ function closeSpot(){ $('spot').classList.add('hidden'); }
 document.addEventListener('keydown', e => { if (e.key==='Escape') closeSpot(); });
 
 /* ===================== FULL MAP MODE (Leaflet, Google-Maps-style zoom) ===================== */
-let mapMode = 'globe', mainMap = null, mainBase = {}, mainMarkers = null, travelLine = null;
+let mainMap = null, mainBase = {}, mainMarkers = null, travelLine = null, extraLayers = [];
 let userLoc = null;
 const CITY_ZOOM = 11;     // "city in scope" — selecting a place lands here, not street level
 const REGION_ZOOM = 9;    // zoomed-out default around your current location
 
-// Ask the browser for the user's location and centre the map there, zoomed out.
+// Ask the browser for the user's EXACT location and centre the map there.
 function locateUser(){
   if (!navigator.geolocation) return;
   navigator.geolocation.getCurrentPosition(
     pos => {
       userLoc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-      if (mapMode==='map' && mainMap && activeView!=='hotspots')
+      if (mainMap && activeView!=='hotspots')
         mainMap.setView([userLoc.lat, userLoc.lng], REGION_ZOOM, { animate:true });
     },
     () => {},  // denied/unavailable → keep the default world view
-    { timeout: 8000, maximumAge: 600000 }
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
   );
+}
+
+// Resolve the user's exact location on demand (used by "Near me").
+function ensureUserLoc(){
+  return new Promise(res => {
+    if (userLoc) return res(userLoc);
+    if (!navigator.geolocation) return res(null);
+    navigator.geolocation.getCurrentPosition(
+      pos => { userLoc = { lat: pos.coords.latitude, lng: pos.coords.longitude }; res(userLoc); },
+      () => res(null),
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  });
 }
 
 // Recenter on the user's location; (re)request it if we don't have it yet.
@@ -848,9 +880,12 @@ function recenterMe(){
   else locateUser();
 }
 
+function mapZoom(d){ ensureMainMap(); mainMap.setZoom(mainMap.getZoom() + d); }
+
 function ensureMainMap(){
   if (mainMap) return;
-  mainMap = L.map('map', { zoomControl:true, worldCopyJump:true, minZoom:2 }).setView([25, 0], 2);
+  // zoomControl:false — our own themed +/- buttons sit bottom-right, clear of the logo.
+  mainMap = L.map('map', { zoomControl:false, worldCopyJump:true, minZoom:2 }).setView([25, 0], 2);
   mainBase.street = L.tileLayer(TILES.street.url, { maxZoom:19, attribution:TILES.street.attribution });
   mainBase.satellite = L.tileLayer(TILES.satellite.url, { maxZoom:19, attribution:TILES.satellite.attribution });
   mainBase.street.addTo(mainMap);
@@ -879,25 +914,12 @@ function setMainBasemap(which){
   $('bmSat').classList.toggle('active', which==='satellite');
 }
 
-function setMode(m){
-  mapMode = m;
-  document.querySelectorAll('#modeToggle button').forEach(b => b.classList.toggle('active', b.dataset.mode===m));
-  const mapOn = m==='map';
-  $('map').classList.toggle('hidden', !mapOn);
-  $('mainBasemap').classList.toggle('hidden', !mapOn);
-  $('locateBtn').classList.toggle('hidden', !mapOn);
-  $('globe').style.visibility = mapOn ? 'hidden' : 'visible';
-  if (mapOn){
-    ensureMainMap();
-    setTimeout(() => { mainMap.invalidateSize(); renderMapMarkers(); }, 60);
-  }
-}
-
 // Plot whatever the active view cares about as real map markers you can zoom into.
 function renderMapMarkers(){
   if (!mainMap) return;
   mainMarkers.clearLayers();
   if (travelLine){ mainMap.removeLayer(travelLine); travelLine = null; }
+  extraLayers.forEach(l => mainMap.removeLayer(l)); extraLayers = [];
 
   if (activeView === 'hotspots'){
     hotspots.forEach(h => L.circleMarker([h.lat, h.lng], dotStyle(HS_COLOR[h.category]))
@@ -908,17 +930,30 @@ function renderMapMarkers(){
     currentList().forEach(g => L.circleMarker([g.lat, g.lng], dotStyle('#ff8fb4'))
       .addTo(mainMarkers).on('click', () => openGem(g)));
   } else {
-    // My Globe → your verified travel points (your uploaded photos) + a route line
+    // My Trips → your verified locations (your uploaded photos), each a tappable photo pin.
     travelPoints.forEach(p => {
-      const icon = L.divIcon({ className:'', iconSize:[18,18],
-        html:`<div class="vpin"><span class="ring"></span><span class="core"></span></div>` });
+      const icon = L.divIcon({ className:'', iconSize:[30,30], iconAnchor:[15,15],
+        html:`<div class="vpin" title="${escapeHtml([p.place,p.country].filter(Boolean).join(', ')||'Verified')}">📷</div>` });
       L.marker([p.lat, p.lng], { icon }).addTo(mainMarkers).on('click', () => openTravelPoint(p));
     });
-    if (travelPoints.length >= 2){
+    // Home location + trails from home to each place you've been.
+    const home = getHome();
+    if (home){
+      const hIcon = L.divIcon({ className:'', iconSize:[32,32], iconAnchor:[16,16],
+        html:`<div class="home-pin" title="Home: ${escapeHtml(home.label||'')}">🏠</div>` });
+      const hMarker = L.marker([home.lat, home.lng], { icon:hIcon }).addTo(mainMap)
+        .bindPopup(`<b>🏠 Home</b><br>${escapeHtml(home.label||'')}`);
+      extraLayers.push(hMarker);
+      travelPoints.forEach(p => {
+        const trail = L.polyline([[home.lat, home.lng], [p.lat, p.lng]],
+          { color:'#5eebd4', weight:1.6, opacity:.35, dashArray:'3 7' }).addTo(mainMap);
+        extraLayers.push(trail);
+      });
+    } else if (travelPoints.length >= 2){
+      // No home set yet → fall back to a time-ordered route line.
       travelLine = L.polyline(travelPoints.map(p=>[p.lat,p.lng]),
         { color:'#5eebd4', weight:2, opacity:.4, dashArray:'4 6' }).addTo(mainMap);
     }
-    // No auto-fit here — the default view stays centred on your current location.
   }
 }
 function dotStyle(color){
@@ -926,9 +961,55 @@ function dotStyle(color){
 }
 
 // Fly whichever view is active to a precise location.
-function focusLocation(lat, lng, globeAlt){
-  if (mapMode === 'map'){ ensureMainMap(); mainMap.flyTo([lat, lng], CITY_ZOOM, { duration:0.8 }); }
-  else flyTo(lat, lng, globeAlt);
+function focusLocation(lat, lng){
+  ensureMainMap();
+  mainMap.flyTo([lat, lng], CITY_ZOOM, { duration:0.8 });
+}
+
+/* ===================== HOME LOCATION + TRAILS ===================== */
+function getHome(){ try { return JSON.parse(localStorage.getItem('trek_home')); } catch(e){ return null; } }
+function saveHome(h){
+  if (h) localStorage.setItem('trek_home', JSON.stringify(h));
+  else localStorage.removeItem('trek_home');
+  renderHome(); renderMapMarkers();
+}
+
+async function geocodeCity(q){
+  try{
+    const d = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(q)}`).then(r=>r.json());
+    if (d && d[0]) return { lat:+d[0].lat, lng:+d[0].lon, label:d[0].display_name.split(',').slice(0,2).join(',') };
+  }catch(e){}
+  return null;
+}
+
+let homeEditing = false;
+function renderHome(){
+  const row = $('homeRow'); if (!row) return;
+  const home = getHome();
+  if (!homeEditing && home){
+    row.innerHTML = `<div class="lbl">🏠 <span>Home: ${escapeHtml(home.label||'set')}</span>
+      <span class="edit" id="homeEdit">Change</span></div>`;
+    $('homeEdit').onclick = () => { homeEditing = true; renderHome(); };
+  } else {
+    row.innerHTML = `<div class="lbl">🏠 <span>${home ? 'Update your home' : 'Set your home location'}</span></div>
+      <input id="homeInput" placeholder="Type a city, e.g. Toronto" value="" />
+      <div class="row2">
+        <div class="mini" id="homeUseLoc">📍 Use my location</div>
+        <div class="mini" id="homeSave">Save</div>
+      </div>`;
+    const commit = async (q) => {
+      const h = await geocodeCity(q);
+      if (h){ homeEditing = false; saveHome(h); }
+      else $('homeInput').placeholder = 'Couldn’t find that — try again';
+    };
+    $('homeSave').onclick = () => { const q=$('homeInput').value.trim(); if(q) commit(q); };
+    $('homeInput').onkeydown = (e) => { if (e.key==='Enter'){ const q=$('homeInput').value.trim(); if(q) commit(q); } };
+    $('homeUseLoc').onclick = () => {
+      if (userLoc){ homeEditing=false; saveHome({ lat:userLoc.lat, lng:userLoc.lng, label:'My location' }); }
+      else if (navigator.geolocation) navigator.geolocation.getCurrentPosition(
+        pos => { homeEditing=false; saveHome({ lat:pos.coords.latitude, lng:pos.coords.longitude, label:'My location' }); });
+    };
+  }
 }
 
 /* ===================== NAV ===================== */
@@ -942,12 +1023,15 @@ document.querySelectorAll('.nav button').forEach(b => b.onclick = () => {
   if (v==='hotspots'){
     if (!hsMeta) loadHotspotMeta().then(loadHotspots);
     else if (!hotspots.length) loadHotspots();
-    else { const c = hsMeta.cities.find(x=>x.key===hsCity); if (c) focusLocation(c.lat,c.lng,0.65); }
-  } else if (mapMode==='map'){ renderMapMarkers(); }
+    else {
+      ensureMainMap();
+      if (hsCity==='__here__' && userLoc) mainMap.setView([userLoc.lat, userLoc.lng], 14);
+      else { const c = hsMeta.cities.find(x=>x.key===hsCity); if (c) mainMap.setView([c.lat,c.lng], CITY_ZOOM); }
+    }
+  }
 });
 
-document.querySelectorAll('#modeToggle button').forEach(b => b.onclick = () => setMode(b.dataset.mode));
-window.setMode = setMode; window.setMainBasemap = setMainBasemap; window.recenterMe = recenterMe;
+window.setMainBasemap = setMainBasemap; window.recenterMe = recenterMe; window.mapZoom = mapZoom;
 
 /* ===================== USER CHIP ===================== */
 function refreshChip(){
@@ -1039,10 +1123,10 @@ $('uploadBtn').onclick = async () => {
     }
     $('bar').firstElementChild.style.width='100%';
     if(plotted>before){
-      setMsg('upMsg',`Done — ${plotted} place${plotted>1?'s':''} on your globe.`,'ok');
+      setMsg('upMsg',`Done — ${plotted} place${plotted>1?'s':''} on your map.`,'ok');
       await loadTravel();
       queued=[]; $('fileList').textContent=''; $('bar').style.display='none'; $('bar').firstElementChild.style.width='0';
-      setTimeout(()=>{ closeUpload(); toast(`Added to your globe — ${plotted} verified place${plotted>1?'s':''}`); }, 900);
+      setTimeout(()=>{ closeUpload(); toast(`Added to your map — ${plotted} verified place${plotted>1?'s':''}`); }, 900);
     } else {
       setMsg('upMsg','Uploaded, but none had location data — nothing to plot. Try camera-original photos.','err');
       $('uploadBtn').disabled=false; queued=[]; $('fileList').textContent='';
@@ -1061,12 +1145,13 @@ window.addEventListener('load', async () => {
   // ?u=username lets you view someone else's globe without signing in.
   const qp = new URLSearchParams(location.search).get('u');
   if (qp && !store.user) localStorage.setItem('trek_user', qp);
-  initGlobe();
+  ensureMainMap();   // the map is the one and only view
   refreshChip();
+  renderHome();
   await loadGems();
   await loadTravel();
-  setMode('map');   // Map is the default view; Globe is the toggle.
-  locateUser();     // centre on the user's current location, zoomed out
+  renderMapMarkers();
+  locateUser();      // centre on the user's current location, zoomed out
 });
 </script>
 </body>
