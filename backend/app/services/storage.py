@@ -28,13 +28,19 @@ def save_bytes(data: bytes, *, ext: str = "jpg", subdir: str = "photos") -> str:
 
 
 def read_bytes_from_url(url: str) -> bytes | None:
-    """Read back a previously-saved local file given its public URL."""
+    """Read back a previously-saved local file given its public URL.
+
+    Matches on the "/media/" segment rather than the full public base URL so a
+    worker whose PUBLIC_BASE_URL differs from the API's (common when the two run
+    as separate processes locally) can still resolve files the API wrote.
+    """
     if settings.storage_backend != "local":
         return None
-    prefix = f"{settings.public_base_url}/media/"
-    if not url.startswith(prefix):
+    marker = "/media/"
+    idx = url.find(marker)
+    if idx == -1:
         return None
-    rel = url[len(prefix):]
+    rel = url[idx + len(marker):]
     path = os.path.join(settings.local_storage_dir, rel)
     if not os.path.exists(path):
         return None

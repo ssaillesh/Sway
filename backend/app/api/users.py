@@ -3,11 +3,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import User, VisitedCountry, VisitedCity, Badge, UserBadge
+from app.models import User, VisitedCountry, VisitedCity, Badge, UserBadge, Trip, TripPhoto
 from app.middleware.auth import get_current_user
 from app.schemas.user import (
     UserProfile, UserPublic, UserUpdate, UserStats, UserMap, MapCountry, MapCity,
-    FeaturedBadgesUpdate,
+    FeaturedBadgesUpdate, GlobePoint, UserGlobe,
 )
 from app.schemas.social import BadgeOut
 from app.services.stats import detailed_stats
@@ -148,3 +148,39 @@ def get_map(username: str, db: Session = Depends(get_db)):
             for c in cities
         ],
     )
+
+
+@router.get("/{username}/globe", response_model=UserGlobe)
+def get_globe(username: str, db: Session = Depends(get_db)):
+    """Lifetime proof-of-travel points for the user's globe.
+
+    Only photos with a harvested location and belonging to a public trip are
+    returned; ordered oldest-first so the front-end can draw the route over time.
+    """
+    user = _get_by_username(db, username)
+    rows = db.execute(
+        select(TripPhoto)
+        .join(Trip, TripPhoto.trip_id == Trip.id)
+        .where(
+            TripPhoto.user_id == user.id,
+            TripPhoto.captured_lat.is_not(None),
+            TripPhoto.captured_lng.is_not(None),
+            Trip.is_public.is_(True),
+        )
+        .order_by(TripPhoto.captured_at.asc().nullslast(), TripPhoto.created_at.asc())
+    ).scalars().all()
+
+    points = [
+        GlobePoint(
+            lat=p.captured_lat, lng=p.captured_lng,
+            captured_at=p.captured_at, source=p.location_source,
+            photo_id=str(p.id), trip_id=str(p.trip_id),
+            thumbnail_url=p.thumbnail_url, caption=p.caption,
+            country=p.captured_country, place=p.captured_place,
+        )
+        for p in rows
+    ]
+    verified = sum(1 for p in points if p.source == "exif")
+    country_count = len({p.country for p in points if p.country})
+    return UserGlobe(points=points, verified_count=verified,
+                     total_count=len(points), country_count=country_count)

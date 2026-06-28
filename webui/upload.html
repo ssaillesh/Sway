@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>TrekRank — Build Your Globe</title>
+<meta name="theme-color" content="#070b18" />
+<style>
+  :root{
+    --accent:#5eebd4; --accent2:#738cff;
+    --bg0:#070b18; --bg1:#0b1124; --bg2:#101a36;
+    --card:rgba(255,255,255,.045); --card-brd:rgba(255,255,255,.09);
+    --text:#eef4ff; --muted:#9bb0d4; --muted2:#6c7fa5;
+    --gold:#ffd166; --rose:#ff7a9c;
+    --shadow:0 30px 80px rgba(0,0,0,.55);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; min-height:100%;}
+  body{
+    background:radial-gradient(1200px 600px at 50% -10%, #142046 0%, var(--bg0) 60%);
+    color:var(--text); min-height:100vh; display:flex; align-items:center; justify-content:center;
+    padding:24px;
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","Segoe UI",Roboto,Inter,sans-serif;
+    -webkit-font-smoothing:antialiased; line-height:1.45;
+  }
+  a{color:var(--accent); text-decoration:none;}
+  .grad{background:linear-gradient(110deg,var(--accent),var(--accent2)); -webkit-background-clip:text;
+    background-clip:text; color:transparent;}
+  .card{
+    width:100%; max-width:460px; background:var(--card); border:1px solid var(--card-brd);
+    border-radius:24px; backdrop-filter:blur(18px); -webkit-backdrop-filter:blur(18px);
+    box-shadow:var(--shadow); padding:30px 28px;
+  }
+  .brand{font-size:12px; font-weight:800; letter-spacing:.2em; text-transform:uppercase;
+    color:var(--accent); margin-bottom:10px;}
+  h1{font-size:26px; font-weight:850; letter-spacing:-.02em; margin:0 0 6px;}
+  .lead{font-size:14px; color:var(--muted); margin:0 0 22px;}
+
+  .tabs{display:flex; gap:6px; background:rgba(255,255,255,.04); border:1px solid var(--card-brd);
+    border-radius:14px; padding:5px; margin-bottom:18px;}
+  .tab{flex:1; text-align:center; padding:9px; border-radius:10px; font-size:13px; font-weight:700;
+    color:var(--muted); cursor:pointer; transition:.2s;}
+  .tab.active{background:linear-gradient(180deg,var(--accent),#39c9b3); color:#04211b;}
+
+  label{display:block; font-size:12px; color:var(--muted2); margin:12px 0 6px; font-weight:700;
+    text-transform:uppercase; letter-spacing:.06em;}
+  input{width:100%; padding:12px 14px; border-radius:12px; border:1px solid var(--card-brd);
+    background:rgba(255,255,255,.04); color:var(--text); font-size:15px; outline:none;}
+  input:focus{border-color:var(--accent);}
+
+  .btn{width:100%; margin-top:20px; padding:14px; border-radius:999px; border:0; cursor:pointer;
+    font-size:15px; font-weight:800; background:linear-gradient(180deg,var(--accent),#39c9b3);
+    color:#04211b; box-shadow:0 12px 34px rgba(94,235,212,.35); transition:transform .2s;}
+  .btn:hover{transform:translateY(-2px);} .btn:disabled{opacity:.55; cursor:default; transform:none;}
+
+  .msg{margin-top:14px; font-size:13px; min-height:18px;}
+  .msg.err{color:var(--rose);} .msg.ok{color:var(--accent);}
+
+  /* ---- drop zone ---- */
+  .who{font-size:13px; color:var(--muted); margin-bottom:16px;}
+  .who b{color:var(--text);}
+  .who a.signout{float:right; color:var(--muted2); font-size:12px;}
+  .drop{border:2px dashed var(--card-brd); border-radius:18px; padding:38px 20px; text-align:center;
+    cursor:pointer; transition:.2s; background:rgba(255,255,255,.02);}
+  .drop:hover,.drop.over{border-color:var(--accent); background:rgba(94,235,212,.06);}
+  .drop .ic{font-size:34px;} .drop .big{font-size:16px; font-weight:700; margin-top:8px;}
+  .drop .sm{font-size:12px; color:var(--muted2); margin-top:4px;}
+  .files{margin-top:14px; font-size:13px; color:var(--muted);}
+  .bar{height:8px; border-radius:99px; background:rgba(255,255,255,.08); margin-top:16px; overflow:hidden; display:none;}
+  .bar > i{display:block; height:100%; width:0; background:linear-gradient(90deg,var(--accent),var(--accent2)); transition:width .3s;}
+  .note{margin-top:16px; font-size:12px; color:var(--muted2); line-height:1.5;}
+  .hidden{display:none !important;}
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="brand">TrekRank · Proof of Travel</div>
+
+    <!-- ===== AUTH ===== -->
+    <div id="authView">
+      <h1>Build your <span class="grad">globe</span></h1>
+      <p class="lead">Sign in, drop in geotagged photos, and watch your lifetime map appear — every point backed by real metadata.</p>
+      <div class="tabs">
+        <div class="tab active" data-tab="login">Sign in</div>
+        <div class="tab" data-tab="register">Create account</div>
+      </div>
+
+      <div id="regFields" class="hidden">
+        <label>Username</label><input id="username" autocomplete="username" placeholder="explorer" />
+        <label>Display name</label><input id="displayName" placeholder="Your name" />
+      </div>
+      <label>Email</label><input id="email" type="email" autocomplete="email" placeholder="you@example.com" />
+      <label>Password</label><input id="password" type="password" autocomplete="current-password" placeholder="••••••••" />
+
+      <button class="btn" id="authBtn">Sign in</button>
+      <div class="msg" id="authMsg"></div>
+    </div>
+
+    <!-- ===== UPLOAD ===== -->
+    <div id="uploadView" class="hidden">
+      <div class="who">
+        Signed in as <b id="whoName">—</b>
+        <a class="signout" id="signout" href="#">sign out</a>
+      </div>
+      <h1>Drop your <span class="grad">photos</span></h1>
+      <p class="lead">We read the hidden GPS + date from each photo, plot it, then strip the metadata from the stored copy.</p>
+
+      <div class="drop" id="drop">
+        <div class="ic">🌍</div>
+        <div class="big">Drag photos here</div>
+        <div class="sm">or click to choose — JPEG with location data works best</div>
+      </div>
+      <input id="fileInput" type="file" accept="image/*" multiple class="hidden" />
+      <div class="files" id="fileList"></div>
+      <div class="bar" id="bar"><i></i></div>
+
+      <button class="btn" id="uploadBtn" disabled>Add to my globe</button>
+      <div class="msg" id="upMsg"></div>
+      <div class="note">Tip: screenshots and social-media downloads usually have their GPS stripped, so they won't plot. Photos straight from a phone camera do.</div>
+    </div>
+  </div>
+
+<script>
+const API_BASE = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+  ? 'http://127.0.0.1:8001/api/v1'
+  : 'https://trekrank-production.up.railway.app/api/v1';
+
+const $ = id => document.getElementById(id);
+const store = {
+  get token(){ return localStorage.getItem('trek_token'); },
+  get user(){ return localStorage.getItem('trek_user'); },
+  set(token, user){ localStorage.setItem('trek_token', token); localStorage.setItem('trek_user', user); },
+  clear(){ localStorage.removeItem('trek_token'); localStorage.removeItem('trek_user'); },
+};
+
+/* ---------- auth ---------- */
+let mode = 'login';
+document.querySelectorAll('.tab').forEach(t => t.onclick = () => {
+  mode = t.dataset.tab;
+  document.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x === t));
+  $('regFields').classList.toggle('hidden', mode !== 'register');
+  $('authBtn').textContent = mode === 'register' ? 'Create account' : 'Sign in';
+  $('password').autocomplete = mode === 'register' ? 'new-password' : 'current-password';
+  $('authMsg').textContent = '';
+});
+
+$('authBtn').onclick = async () => {
+  const email = $('email').value.trim(), password = $('password').value;
+  if (!email || !password) return setMsg('authMsg', 'Email and password required.', 'err');
+  $('authBtn').disabled = true;
+  try {
+    let body, path;
+    if (mode === 'register') {
+      body = { email, password, username: $('username').value.trim(), display_name: $('displayName').value.trim() || $('username').value.trim() };
+      path = '/auth/register';
+      if (!body.username) { setMsg('authMsg', 'Pick a username.', 'err'); $('authBtn').disabled = false; return; }
+    } else {
+      body = { email, password }; path = '/auth/login';
+    }
+    const r = await fetch(API_BASE + path, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.detail || 'Auth failed');
+    store.set(d.access_token, d.user.username);
+    showUpload();
+  } catch (e) {
+    setMsg('authMsg', e.message, 'err');
+  } finally { $('authBtn').disabled = false; }
+};
+
+function setMsg(id, text, cls){ const el = $(id); el.textContent = text; el.className = 'msg ' + (cls || ''); }
+
+/* ---------- upload ---------- */
+let queued = [];
+
+function showUpload(){
+  $('authView').classList.add('hidden');
+  $('uploadView').classList.remove('hidden');
+  $('whoName').textContent = '@' + store.user;
+}
+
+$('signout').onclick = (e) => { e.preventDefault(); store.clear(); location.reload(); };
+
+const drop = $('drop'), fileInput = $('fileInput');
+drop.onclick = () => fileInput.click();
+['dragover','dragenter'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave','drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', e => addFiles(e.dataTransfer.files));
+fileInput.onchange = () => addFiles(fileInput.files);
+
+function addFiles(list){
+  const imgs = [...list].filter(f => f.type.startsWith('image/'));
+  queued = queued.concat(imgs);
+  $('fileList').textContent = queued.length ? `${queued.length} photo${queued.length>1?'s':''} ready` : '';
+  $('uploadBtn').disabled = queued.length === 0;
+}
+
+$('uploadBtn').onclick = async () => {
+  if (!queued.length) return;
+  $('uploadBtn').disabled = true;
+  const H = { Authorization: 'Bearer ' + store.token };
+  try {
+    setMsg('upMsg', 'Creating trip…', '');
+    // One container trip; the real locations come from each photo's EXIF.
+    const tripRes = await fetch(API_BASE + '/trips', {
+      method: 'POST', headers: { ...H, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: 'Photo import', dest_city: 'Photo import',
+        dest_country: 'US', transport_mode: 'other',
+        start_date: new Date().toISOString().slice(0,10) }),
+    });
+    if (tripRes.status === 401) { store.clear(); location.reload(); return; }
+    const trip = await tripRes.json();
+    if (!tripRes.ok) throw new Error(trip.detail || 'Could not create trip');
+
+    setMsg('upMsg', 'Uploading photos…', '');
+    $('bar').style.display = 'block'; $('bar').firstElementChild.style.width = '35%';
+    const fd = new FormData();
+    queued.forEach(f => fd.append('files', f));
+    const upRes = await fetch(`${API_BASE}/trips/${trip.id}/photos`, { method: 'POST', headers: H, body: fd });
+    if (!upRes.ok) { const e = await upRes.json().catch(()=>({})); throw new Error(e.detail || 'Upload failed'); }
+    $('bar').firstElementChild.style.width = '70%';
+
+    // Poll the globe until the worker has harvested at least one located point.
+    setMsg('upMsg', 'Reading photo metadata…', '');
+    let plotted = 0;
+    for (let i = 0; i < 25; i++) {
+      await new Promise(r => setTimeout(r, 1200));
+      const g = await fetch(`${API_BASE}/users/${store.user}/globe`).then(r => r.json());
+      plotted = g.total_count;
+      if (plotted > 0) break;
+    }
+    $('bar').firstElementChild.style.width = '100%';
+
+    if (plotted > 0){
+      setMsg('upMsg', `Done — ${plotted} place${plotted>1?'s':''} on your globe. Redirecting…`, 'ok');
+      setTimeout(() => location.href = `/globe.html?u=${encodeURIComponent(store.user)}`, 1100);
+    } else {
+      setMsg('upMsg', 'Uploaded, but none of these photos had location data — nothing to plot. Try camera-original photos.', 'err');
+      $('uploadBtn').disabled = false;
+      queued = []; $('fileList').textContent = '';
+    }
+  } catch (e) {
+    setMsg('upMsg', e.message, 'err');
+    $('uploadBtn').disabled = false;
+  }
+};
+
+/* ---------- boot ---------- */
+if (store.token && store.user) showUpload();
+</script>
+</body>
+</html>

@@ -73,6 +73,20 @@ class TripPhoto(Base):
     caption: Mapped[str | None] = mapped_column(String(300), nullable=True)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
 
+    # Proof-of-travel: GPS + timestamp harvested from the photo's EXIF before the
+    # stored copy is stripped. captured_lat/lng/at are NULL when the photo had no
+    # usable EXIF GPS (e.g. screenshots, social-app downloads). location_source is
+    # "exif" for harvested points and "manual" for user-placed ones; it drives the
+    # Verified vs Self-reported tier shown on the globe.
+    captured_lat: Mapped[float | None] = mapped_column(Float, nullable=True)
+    captured_lng: Mapped[float | None] = mapped_column(Float, nullable=True)
+    captured_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    location_source: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    # Reverse-geocoded from captured_lat/lng so the globe can report an exact
+    # country count and a place label per point. NULL until the worker resolves it.
+    captured_country: Mapped[str | None] = mapped_column(CHAR(2), nullable=True)
+    captured_place: Mapped[str | None] = mapped_column(String(120), nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     trip: Mapped["Trip"] = relationship(back_populates="photos")
