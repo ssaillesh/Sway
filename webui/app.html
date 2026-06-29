@@ -79,6 +79,8 @@
     border:2px solid #fff; box-shadow:0 0 0 4px rgba(94,235,212,.22), 0 3px 10px rgba(0,0,0,.5);
     transition:transform .15s var(--ease);}
   .vpin:hover{transform:scale(1.18);}
+  .vpin.manual{background:radial-gradient(circle at 32% 28%, #ffe39a, var(--gold));
+    box-shadow:0 0 0 4px rgba(255,209,102,.22), 0 3px 10px rgba(0,0,0,.5);}
   .home-pin{width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center;
     font-size:16px; background:radial-gradient(circle at 32% 28%, #ffe39a, var(--gold));
     border:2px solid #fff; box-shadow:0 0 0 4px rgba(255,209,102,.22), 0 3px 10px rgba(0,0,0,.5);}
@@ -250,6 +252,35 @@
     border:2px solid #fff; cursor:pointer;}
   .hs .meta .dist{display:inline-block; margin-top:5px; font-size:11px; font-weight:800; color:var(--accent);
     background:rgba(94,235,212,.12); padding:3px 8px; border-radius:999px;}
+
+  /* ---------- inventory cards ---------- */
+  .inv{display:flex; gap:12px; padding:10px; border-radius:14px; border:1px solid var(--hair); margin-bottom:10px;
+    background:rgba(255,255,255,.025);}
+  .inv .thumb{width:54px; height:54px; flex:0 0 auto; border-radius:11px; object-fit:cover; background:var(--bg2);
+    border:1px solid var(--card-brd); display:flex; align-items:center; justify-content:center; font-size:20px;}
+  .inv .meta{flex:1; min-width:0;}
+  .inv .meta b{font-size:13.5px; font-weight:700; display:block; line-height:1.3; white-space:nowrap;
+    overflow:hidden; text-overflow:ellipsis;}
+  .inv .meta .when{font-size:11.5px; color:var(--muted2);}
+  .inv .badge{display:inline-block; margin-top:6px; font-size:10px; font-weight:800; letter-spacing:.04em;
+    text-transform:uppercase; padding:3px 8px; border-radius:999px;}
+  .inv .badge.ok{color:#04211b; background:var(--accent);}
+  .inv .badge.manual{color:#2a1c04; background:var(--gold);}
+  .inv .badge.no{color:var(--muted); background:rgba(255,255,255,.07);}
+  .inv .place-btn{margin-top:8px; display:inline-block; font-size:11.5px; font-weight:700; cursor:pointer;
+    color:var(--gold); background:rgba(255,209,102,.12); border:1px solid rgba(255,209,102,.3);
+    padding:5px 10px; border-radius:999px;}
+  .inv .place-btn:hover{background:rgba(255,209,102,.2);}
+  .inv-tabs{display:flex; gap:6px; margin-bottom:14px;}
+  .inv-tabs button{flex:1; padding:8px; border-radius:10px; border:1px solid var(--card-brd); cursor:pointer;
+    background:rgba(255,255,255,.04); color:var(--muted); font-size:12px; font-weight:700;}
+  .inv-tabs button.active{background:linear-gradient(180deg,var(--accent),#39c9b3); color:#04211b; border-color:transparent;}
+
+  .place-hint{position:fixed; top:80px; left:50%; transform:translateX(-50%); z-index:25;
+    background:var(--gold); color:#2a1c04; font-weight:750; font-size:14px; padding:11px 20px; border-radius:999px;
+    box-shadow:var(--shadow);}
+  .place-hint a{color:#7a5600; font-weight:800;}
+  .place-cursor, .place-cursor .leaflet-grab{cursor:crosshair !important;}
   .hs{display:flex; gap:12px; padding:11px; border-radius:14px; cursor:pointer; transition:.15s; border:1px solid transparent;}
   .hs:hover{background:rgba(255,255,255,.05); border-color:var(--card-brd);}
   .hs .pin{width:32px; height:32px; flex:0 0 auto; border-radius:9px; display:flex; align-items:center; justify-content:center; font-size:15px;}
@@ -312,6 +343,7 @@
     <a class="logo" href="/" title="Back to TrekRank home">Trek<span class="dot">·</span>Rank</a>
     <div class="nav">
       <button data-view="globe" class="active">📍 My Trips</button>
+      <button data-view="inventory">📸 Photos</button>
       <button data-view="discover">✦ Discover</button>
       <button data-view="hotspots">📡 Hotspots</button>
     </div>
@@ -382,6 +414,22 @@
       <div class="filters" id="hsFilters"></div>
       <div id="hsList"><div class="empty"><div class="ic">📡</div><p>Pick a category to see places near you.</p></div></div>
     </div>
+  </div>
+
+  <!-- SIDE PANEL: INVENTORY (your uploaded photos) -->
+  <div class="panel hidden" id="panelInventory">
+    <div class="head">
+      <h2>Your photos</h2>
+      <p id="invSub">Verified vs. unverified — place the unverified ones yourself.</p>
+    </div>
+    <div class="body">
+      <div id="invList"></div>
+    </div>
+  </div>
+
+  <!-- placement hint banner -->
+  <div class="place-hint hidden" id="placeHint">
+    📍 Tap the map where this photo was taken · <a id="placeCancel" href="#">cancel</a>
   </div>
 
   <!-- SPOT DETAIL — docked side panel (not a popup): flies the globe + precise street map -->
@@ -574,16 +622,21 @@ function renderGems(){
   }).join('');
   $('gemList').querySelectorAll('.gem').forEach(el => el.onclick = () => openGem(list[+el.dataset.i]));
 }
-// A verified location built from one of the user's own uploaded photos.
+// A place from one of the user's own uploaded photos (verified or manual).
 function openTravelPoint(p){
   focusLocation(p.lat, p.lng, 1.0);
-  const where = [p.place, p.country].filter(Boolean).join(', ') || 'Verified location';
+  const manual = p.source !== 'exif';
+  const where = [p.place, p.country].filter(Boolean).join(', ') || (manual?'Your place':'Verified location');
   const when = p.captured_at
     ? new Date(p.captured_at).toLocaleDateString(undefined,{year:'numeric',month:'long',day:'numeric'}) : '';
   openSpot({
     name: where, lat: p.lat, lng: p.lng,
-    cat: '✓ Verified · you were here', catColor: 'var(--accent)',
-    sub: when, blurb: 'A place verified from your own photo — its GPS came straight from the image you uploaded.',
+    cat: manual ? '● Unverified · you placed this' : '✓ Verified · you were here',
+    catColor: manual ? 'var(--gold)' : 'var(--accent)',
+    sub: when,
+    blurb: manual
+      ? 'You placed this photo on the map manually, so it counts as an unverified trip.'
+      : 'Verified from your own photo — its GPS came straight from the image you uploaded.',
     image: p.thumbnail_url, needStreet: true,
   });
 }
@@ -929,10 +982,12 @@ function renderMapMarkers(){
     currentList().forEach(g => L.circleMarker([g.lat, g.lng], dotStyle('#ff8fb4'))
       .addTo(mainMarkers).on('click', () => openGem(g)));
   } else {
-    // My Trips → your verified locations (your uploaded photos), each a tappable photo pin.
+    // My Trips → your places (uploaded photos). Teal = verified (EXIF GPS),
+    // amber = manually placed (unverified).
     travelPoints.forEach(p => {
+      const manual = p.source !== 'exif';
       const icon = L.divIcon({ className:'', iconSize:[30,30], iconAnchor:[15,15],
-        html:`<div class="vpin" title="${escapeHtml([p.place,p.country].filter(Boolean).join(', ')||'Verified')}">📷</div>` });
+        html:`<div class="vpin${manual?' manual':''}" title="${escapeHtml([p.place,p.country].filter(Boolean).join(', ')||(manual?'Unverified':'Verified'))}">📷</div>` });
       L.marker([p.lat, p.lng], { icon }).addTo(mainMarkers).on('click', () => openTravelPoint(p));
     });
     // Home location + trails from home to each place you've been.
@@ -1011,6 +1066,87 @@ function renderHome(){
   }
 }
 
+/* ===================== INVENTORY (your photos) ===================== */
+let invFilter = 'all', placingPhotoId = null;
+let invData = { photos:[], verified_count:0, unverified_count:0 };
+
+async function loadInventory(){
+  if (!store.token){
+    $('invList').innerHTML = `<div class="empty"><div class="ic">🔒</div><p>Sign in to see your uploaded photos.</p><button class="btn" onclick="openUpload()">Sign in</button></div>`;
+    $('invSub').textContent = 'Your verified and unverified photos.';
+    return;
+  }
+  $('invList').innerHTML = `<div class="loading"><div class="sp"></div>Loading your photos…</div>`;
+  try{
+    invData = await fetch(`${API_BASE}/users/me/photos`, { headers:{Authorization:'Bearer '+store.token} }).then(r=>r.json());
+    renderInventory();
+  }catch(e){
+    $('invList').innerHTML = `<div class="empty"><div class="ic">⚠️</div><p>Couldn't load your photos.</p></div>`;
+  }
+}
+
+function renderInventory(){
+  const d = invData;
+  if (!d.photos || !d.photos.length){
+    $('invSub').textContent = 'Verified vs. unverified — place the unverified ones yourself.';
+    $('invList').innerHTML = `<div class="empty"><div class="ic">📸</div><p>No photos yet. Upload some to build your map.</p><button class="btn" onclick="openUpload()">Upload photos</button></div>`;
+    return;
+  }
+  $('invSub').textContent = `${d.verified_count} verified · ${d.unverified_count} to place`;
+  const tabs = `<div class="inv-tabs">${['all','verified','unverified'].map(t =>
+    `<button class="${t===invFilter?'active':''}" data-t="${t}">${t[0].toUpperCase()+t.slice(1)}</button>`).join('')}</div>`;
+  let list = d.photos;
+  if (invFilter==='verified') list = list.filter(p=>p.verified);
+  if (invFilter==='unverified') list = list.filter(p=>!p.verified);
+
+  const cards = list.map(p => {
+    const img = p.thumbnail_url
+      ? `<div class="thumb" style="background-image:url('${encodeURI(p.thumbnail_url)}');background-size:cover;background-position:center"></div>`
+      : `<div class="thumb">📷</div>`;
+    const where = [p.place, p.country].filter(Boolean).join(', ')
+      || (p.lat!=null ? `${p.lat.toFixed(2)}, ${p.lng.toFixed(2)}` : 'No location yet');
+    const when = p.captured_at ? new Date(p.captured_at).toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'}) : '';
+    const badge = p.verified ? '<span class="badge ok">✓ Verified</span>'
+      : (p.source==='manual' ? '<span class="badge manual">● Manual</span>' : '<span class="badge no">Unverified</span>');
+    const placeBtn = !p.verified
+      ? `<div><span class="place-btn" data-place="${p.photo_id}">📍 ${p.lat!=null?'Move on map':'Place on map'}</span></div>` : '';
+    return `<div class="inv">${img}<div class="meta"><b>${escapeHtml(where)}</b><span class="when">${escapeHtml(when)}</span><br>${badge}${placeBtn}</div></div>`;
+  }).join('');
+  $('invList').innerHTML = tabs + cards;
+  $('invList').querySelectorAll('.inv-tabs button').forEach(b => b.onclick = () => { invFilter=b.dataset.t; renderInventory(); });
+  $('invList').querySelectorAll('.place-btn').forEach(b => b.onclick = () => startPlacing(b.dataset.place));
+}
+
+function startPlacing(photoId){
+  placingPhotoId = photoId;
+  ensureMainMap();
+  $('placeHint').classList.remove('hidden');
+  $('map').classList.add('place-cursor');
+  mainMap.once('click', onPlaceClick);
+}
+function cancelPlacing(){
+  placingPhotoId = null;
+  $('placeHint').classList.add('hidden');
+  $('map').classList.remove('place-cursor');
+  if (mainMap) mainMap.off('click', onPlaceClick);
+}
+async function onPlaceClick(e){
+  const id = placingPhotoId; cancelPlacing();
+  if (!id) return;
+  try{
+    const r = await fetch(`${API_BASE}/users/me/photos/${id}/location`, {
+      method:'PATCH', headers:{Authorization:'Bearer '+store.token,'Content-Type':'application/json'},
+      body: JSON.stringify({ lat:e.latlng.lat, lng:e.latlng.lng })
+    });
+    if (!r.ok) throw new Error();
+    const p = await r.json();
+    toast(`📍 Placed in ${[p.place,p.country].filter(Boolean).join(', ')||'that spot'} — added as an unverified trip`);
+    await loadTravel();
+    await loadInventory();
+  }catch(err){ toast('Could not place that photo.'); }
+}
+$('placeCancel').onclick = (e)=>{ e.preventDefault(); cancelPlacing(); };
+
 /* ===================== NAV ===================== */
 document.querySelectorAll('.nav button').forEach(b => b.onclick = () => {
   document.querySelectorAll('.nav button').forEach(x => x.classList.toggle('active', x===b));
@@ -1018,7 +1154,9 @@ document.querySelectorAll('.nav button').forEach(b => b.onclick = () => {
   $('panelGlobe').classList.toggle('hidden', v!=='globe');
   $('panelDiscover').classList.toggle('hidden', v!=='discover');
   $('panelHotspots').classList.toggle('hidden', v!=='hotspots');
+  $('panelInventory').classList.toggle('hidden', v!=='inventory');
   renderOverlay();
+  if (v==='inventory') loadInventory();
   if (v==='hotspots'){
     if (!hsMeta) loadHotspotMeta().then(loadHotspots);
     else if (!hotspots.length) loadHotspots();
@@ -1113,6 +1251,8 @@ $('uploadBtn').onclick = async () => {
     if(!upRes.ok){ const e=await upRes.json().catch(()=>({})); throw new Error(e.detail||'Upload failed'); }
     $('bar').firstElementChild.style.width='70%';
     setMsg('upMsg','Reading photo metadata…','');
+    const beforePlaces = new Set(travelPoints.map(p=>p.place||p.country).filter(Boolean));
+    const count = queued.length;
     let before=travelPoints.length, plotted=before;
     for(let i=0;i<25;i++){
       await new Promise(r=>setTimeout(r,1200));
@@ -1122,13 +1262,21 @@ $('uploadBtn').onclick = async () => {
     }
     $('bar').firstElementChild.style.width='100%';
     if(plotted>before){
-      setMsg('upMsg',`Done — ${plotted} place${plotted>1?'s':''} on your map.`,'ok');
       await loadTravel();
+      // Celebrate with the new place names the metadata revealed.
+      const names = [...new Set(travelPoints
+        .map(p=>p.place||p.country).filter(n=>n && !beforePlaces.has(n)))];
+      const trip = names.length
+        ? `🎉 Trip to ${names.slice(0,3).join(', ')}${names.length>3?` +${names.length-3} more`:''}!`
+        : `🎉 ${plotted-before} new place${plotted-before>1?'s':''} added to your map!`;
+      setMsg('upMsg', trip, 'ok');
       queued=[]; $('fileList').textContent=''; $('bar').style.display='none'; $('bar').firstElementChild.style.width='0';
-      setTimeout(()=>{ closeUpload(); toast(`Added to your map — ${plotted} verified place${plotted>1?'s':''}`); }, 900);
+      setTimeout(()=>{ closeUpload(); toast(trip); }, 1400);
     } else {
-      setMsg('upMsg','Uploaded, but none had location data — nothing to plot. Try camera-original photos.','err');
-      $('uploadBtn').disabled=false; queued=[]; $('fileList').textContent='';
+      // No GPS found — but the photos ARE saved; point them to the inventory to place manually.
+      setMsg('upMsg', `Uploaded ${count} photo${count>1?'s':''}, but no location data was found. Open 📸 Photos to place ${count>1?'them':'it'} on the map yourself.`, 'err');
+      queued=[]; $('fileList').textContent=''; $('bar').style.display='none';
+      setTimeout(()=>{ closeUpload(); document.querySelector('.nav button[data-view="inventory"]').click(); }, 1800);
     }
   }catch(e){ setMsg('upMsg', e.message, 'err'); $('uploadBtn').disabled=false; }
 };

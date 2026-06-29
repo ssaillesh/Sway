@@ -97,3 +97,29 @@ class UserGlobe(BaseModel):
     verified_count: int   # points with EXIF GPS
     total_count: int
     country_count: int    # distinct reverse-geocoded countries
+
+
+class InventoryPhoto(BaseModel):
+    """Every uploaded photo, located or not, for the inventory/folder view."""
+    photo_id: str
+    trip_id: str
+    thumbnail_url: str | None = None
+    photo_url: str | None = None
+    captured_at: datetime | None = None
+    lat: float | None = None
+    lng: float | None = None
+    source: str | None = None    # exif | manual | None
+    country: str | None = None
+    place: str | None = None
+    verified: bool               # True only when GPS came from the photo's EXIF
+
+
+class PhotoInventory(BaseModel):
+    photos: list[InventoryPhoto]
+    verified_count: int
+    unverified_count: int
+
+
+class PhotoLocationUpdate(BaseModel):
+    lat: float
+    lng: float
