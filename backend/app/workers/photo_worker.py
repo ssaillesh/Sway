@@ -101,41 +101,52 @@ def process_photo_sync(photo_id: str) -> None:
         raw = read_bytes_from_url(photo.photo_url)
         if not raw:
             return
-        src = Image.open(io.BytesIO(raw))
 
-        # Harvest proof-of-travel data BEFORE stripping EXIF.
-        loc = extract_exif_location(src)
+        # --- 1) Harvest GPS + timestamp and COMMIT FIRST -------------------
+        # Persisting the proof-of-travel data before the memory-heavy thumbnail
+        # step means a large phone photo that exhausts RAM (e.g. on a small free
+        # tier) still keeps its geolocation instead of losing it on a crash.
+        loc = extract_exif_location(Image.open(io.BytesIO(raw)))
         if "captured_lat" in loc:
             photo.captured_lat = loc["captured_lat"]
             photo.captured_lng = loc["captured_lng"]
             photo.location_source = "exif"
-            # Resolve country/place so the globe can show an exact country count.
             geo = reverse_geocode(loc["captured_lat"], loc["captured_lng"])
             if geo:
                 photo.captured_country = geo["country_code"]
                 photo.captured_place = geo["place"]
         if "captured_at" in loc:
             photo.captured_at = loc["captured_at"]
-
-        img = src.convert("RGB")
-        img = _strip_exif(img)
-
-        # medium 1200x1200
-        medium = img.copy()
-        medium.thumbnail((1200, 1200))
-        mbuf = io.BytesIO()
-        medium.save(mbuf, format="JPEG", quality=85)
-        photo.photo_url = save_bytes(mbuf.getvalue(), ext="jpg", subdir="photos")
-
-        # thumbnail 400x400
-        thumb = img.copy()
-        thumb.thumbnail((400, 400))
-        tbuf = io.BytesIO()
-        thumb.save(tbuf, format="JPEG", quality=80)
-        photo.thumbnail_url = save_bytes(tbuf.getvalue(), ext="jpg", subdir="thumbs")
-
         db.add(photo)
         db.commit()
+
+        # --- 2) Thumbnails (memory-bounded, best-effort) ------------------
+        try:
+            src = Image.open(io.BytesIO(raw))
+            # draft() lets the JPEG decoder downscale while reading, so a 24MP
+            # photo never fully decodes into RAM. Strips EXIF as a side effect.
+            src.draft("RGB", (1600, 1600))
+            img = src.convert("RGB")
+            img.info.pop("exif", None)  # stored copies must carry no metadata
+
+            medium = img.copy()
+            medium.thumbnail((1200, 1200))
+            mbuf = io.BytesIO()
+            medium.save(mbuf, format="JPEG", quality=85)
+            photo.photo_url = save_bytes(mbuf.getvalue(), ext="jpg", subdir="photos")
+
+            thumb = img.copy()
+            thumb.thumbnail((400, 400))
+            tbuf = io.BytesIO()
+            thumb.save(tbuf, format="JPEG", quality=80)
+            photo.thumbnail_url = save_bytes(tbuf.getvalue(), ext="jpg", subdir="thumbs")
+
+            db.add(photo)
+            db.commit()
+        except Exception:
+            # Geolocation is already saved above; a thumbnail failure must not
+            # roll that back. Leave the original image as-is.
+            db.rollback()
     finally:
         db.close()
 
