@@ -24,7 +24,16 @@ class Settings(BaseSettings):
     def _strip_urls(cls, v: str) -> str:
         # Env vars pasted via dashboards can carry stray whitespace/newlines,
         # which corrupt the connection (e.g. db name becomes "railway\n").
-        return v.strip() if isinstance(v, str) else v
+        if not isinstance(v, str):
+            return v
+        v = v.strip()
+        # Managed Postgres (Render/Heroku/Railway) hands out postgres:// or
+        # postgresql:// with no driver; SQLAlchemy needs one. Normalise it so the
+        # same code runs on any host without per-platform tweaks.
+        for scheme in ("postgres://", "postgresql://"):
+            if v.startswith(scheme):
+                return "postgresql+psycopg2://" + v[len(scheme):]
+        return v
 
     # JWT
     jwt_secret: str = "dev-secret-change-me"

@@ -366,6 +366,7 @@
     color:#eef4ff!important; font-weight:700!important; font-size:11px!important; box-shadow:none!important; border-radius:8px!important;}
   .maptip::before{display:none!important;}
 </style>
+  <script src="/config.js"></script>
 </head>
 <body>
 
@@ -726,9 +727,7 @@ function animateCount(el, target, dur=1800){
   requestAnimationFrame(tick);
 }
 /* ---------- API base (production API serves the waitlist) ---------- */
-const API_BASE = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
-  ? 'http://127.0.0.1:8001/api/v1'
-  : 'https://trekrank-production.up.railway.app/api/v1';
+const API_BASE = window.API_BASE;
 
 const counter = document.getElementById('counter');
 // Pull the real live count; fall back to the seeded number if the API is unreachable.
