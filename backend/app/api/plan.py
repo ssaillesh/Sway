@@ -214,6 +214,21 @@ def chat(req: ChatRequest):
             ["full day", "all day", "whole day", "entire day", "day trip", "the whole thing"]):
         prefs["time_of_day"] = "morning"
 
+    # Deterministic follow-ups: "make it fancier/cheaper" reliably shift the tier
+    # (don't leave it to the LLM to re-infer the vibe each turn).
+    last = req.messages[-1].content.lower() if req.messages else ""
+    if any(w in last for w in ["fancier", "fancy", "nicer", "upscale", "classier", "classy",
+                               "bougie", "boujee", "high end", "high-end", "luxury", "luxurious",
+                               "more expensive", "splurge", "baller", "treat ourselves", "treat myself"]):
+        prefs["vibe"] = "extravagant"
+        b = float(prefs.get("budget") or 0)
+        prefs["budget"] = max(b * 1.6, b, 250)
+        if any(w in last for w in ["no object", "no limit", "unlimited", "sky is the limit"]):
+            prefs["budget"] = max(prefs["budget"], 600)
+    elif any(w in last for w in ["cheaper", "cheap", "budget friendly", "more affordable",
+                                 "affordable", "save money", "less expensive", "cost less", "on a budget"]):
+        prefs["vibe"] = "chill"
+
     missing = _needs(prefs)
     if missing:
         if prefs.get("question"):
@@ -227,7 +242,6 @@ def chat(req: ChatRequest):
     budget = float(prefs["budget"])
 
     # A "try another / something different" gives fresh picks instead of repeating.
-    last = req.messages[-1].content.lower() if req.messages else ""
     opts["vary"] = any(w in last for w in ["another", "different", "something else",
                                             "try again", "switch", "change it", "new plan", "not this"])
     # How full to make the day (whole day → more stops; evening → fewer).

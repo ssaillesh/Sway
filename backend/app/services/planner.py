@@ -121,9 +121,11 @@ def _gather(anchor, slot_key, price_pref, radius, dietary, term_override=None, c
     if term_override:                       # e.g. "escape room" / "korean bbq"
         term = term_override
     categories = cat_override or slot["yelp"].get("categories")
+    # No hard price filter — a full candidate pool means "fancier" plans never
+    # starve; the price tier is applied as a soft preference in scoring instead.
     cands = yelp.search(anchor[0], anchor[1], term=term,
                         categories=categories,
-                        price=price_pref, radius=radius, limit=15, sort_by="rating")
+                        radius=radius, limit=18, sort_by="rating")
     if len(cands) < 5:
         for h in fetch_hotspots(slot["osm"], lat=anchor[0], lng=anchor[1], radius=radius):
             cands.append({"source": "osm", "name": h["name"], "lat": h["lat"], "lng": h["lng"],
@@ -133,23 +135,24 @@ def _gather(anchor, slot_key, price_pref, radius, dietary, term_override=None, c
     return cands
 
 
-def _score(c, anchor, penalty, want_gem):
-    """Higher is better. Balances rating, closeness to the running anchor, value
-    (cheaper wins ties), and a bonus for hidden gems (well-rated, few reviews)."""
+def _score(c, anchor, penalty, want_gem, fancy=False):
+    """Higher is better. Balances rating, closeness, price preference (cheaper for
+    value vibes / pricier when they want fancy), and a hidden-gem bonus."""
     rating = c.get("rating") or 3.6                      # neutral for unrated OSM
     dist = _haversine_km(anchor[0], anchor[1], c["lat"], c["lng"])
     level = PRICE_LEVEL.get(c.get("price"), 2)
-    score = rating * 2.0 - dist * penalty - (level - 1) * 0.3   # value: cheaper edges ahead
+    score = rating * 2.0 - dist * penalty
+    score += (level - 1) * 0.6 if fancy else -(level - 1) * 0.5   # tier preference
     rc = c.get("review_count")
-    if want_gem and rc is not None and rating >= 4.0 and rc < 350:
+    if want_gem and not fancy and rc is not None and rating >= 4.0 and rc < 350:
         score += 0.8                                     # reward the under-the-radar spot
     return score
 
 
-def _pick(cands, used, anchor, penalty, want_gem, vary=False):
+def _pick(cands, used, anchor, penalty, want_gem, vary=False, fancy=False):
     ranked = sorted(
         (c for c in cands if c.get("name") and c["name"].lower() not in used),
-        key=lambda c: _score(c, anchor, penalty, want_gem), reverse=True)
+        key=lambda c: _score(c, anchor, penalty, want_gem, fancy), reverse=True)
     if not ranked:
         return None
     # On a "try another", pick from the strong top few for genuine variety.
@@ -190,6 +193,7 @@ def build_plan(*, lat, lng, budget, vibe=DEFAULT_VIBE, party_size=2, transport="
 
     center = (lat, lng)
     chain = tconf.get("chain", False)   # only walking chains stops tightly together
+    fancy = vibe == "extravagant"       # bias picks toward pricier/upscale venues
     anchor = center
     stops = []
     for i, slot_key in enumerate(slots):
@@ -213,10 +217,10 @@ def build_plan(*, lat, lng, budget, vibe=DEFAULT_VIBE, party_size=2, transport="
             search_from = center
             r = radius
         cands = _gather(search_from, slot_key, price_pref, r, dietary, term_override, cat_override)
-        pick = _pick(cands, used, search_from, tconf["penalty"], (i == gem_index), vary)
+        pick = _pick(cands, used, search_from, tconf["penalty"], (i == gem_index), vary, fancy)
         if not pick and r < radius:
             cands = _gather(search_from, slot_key, price_pref, radius, dietary, term_override, cat_override)
-            pick = _pick(cands, used, search_from, tconf["penalty"], (i == gem_index), vary)
+            pick = _pick(cands, used, search_from, tconf["penalty"], (i == gem_index), vary, fancy)
         if not pick:
             continue
         used.add(pick["name"].lower())
