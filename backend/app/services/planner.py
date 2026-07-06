@@ -11,12 +11,19 @@ from app.services.hotspots import fetch_hotspots
 from app.services import llm
 from app.services import weather as weather_svc
 from app.services import events as events_svc
+from app.services import experience
 
 # Indoor-only activity set for wet/cold days.
 INDOOR_ACTIVITIES = "arcades,escapegames,bowling,poolhalls,lasertag,karaoke,trampoline,museums,aquariums"
 
 PRICE_COST = {"$": 15, "$$": 30, "$$$": 65, "$$$$": 110}
 PRICE_LEVEL = {"$": 1, "$$": 2, "$$$": 3, "$$$$": 4}
+
+# How much the fun/hype signal counts (activity & leisure slots only). Tuned so a
+# ~1.5-star gap can flip on excitement (paintball 3.5★ vs gallery 5★) but a
+# genuinely bad place can't ride "fun" past a much better one. rating contributes
+# rating*2.0 (≈2 pts/star); fun contributes up to fun_factor*1.3 (≈6.5 max).
+FUN_WEIGHT = 1.3
 
 # "activity" = real things to do (aquarium, arcade, escape room, museum, bowling…).
 # "leisure"  = evening vibes (lounge, hookah, cocktail/live-music, karaoke…).
@@ -135,24 +142,29 @@ def _gather(anchor, slot_key, price_pref, radius, dietary, term_override=None, c
     return cands
 
 
-def _score(c, anchor, penalty, want_gem, fancy=False):
+def _score(c, anchor, penalty, want_gem, fancy=False, apply_fun=False):
     """Higher is better. Balances rating, closeness, price preference (cheaper for
-    value vibes / pricier when they want fancy), and a hidden-gem bonus."""
+    value vibes / pricier when they want fancy), a hidden-gem bonus, and — for
+    activity/leisure slots — a fun/hype signal that's independent of star rating."""
     rating = c.get("rating") or 3.6                      # neutral for unrated OSM
     dist = _haversine_km(anchor[0], anchor[1], c["lat"], c["lng"])
     level = PRICE_LEVEL.get(c.get("price"), 2)
     score = rating * 2.0 - dist * penalty
     score += (level - 1) * 0.6 if fancy else -(level - 1) * 0.5   # tier preference
+    if apply_fun:
+        # Excitement matters here, not just satisfaction — so a high-energy
+        # experience can out-rank a better-reviewed but sleepy one.
+        score += experience.fun_factor_for(c.get("categories")) * FUN_WEIGHT
     rc = c.get("review_count")
     if want_gem and not fancy and rc is not None and rating >= 4.0 and rc < 350:
         score += 0.8                                     # reward the under-the-radar spot
     return score
 
 
-def _pick(cands, used, anchor, penalty, want_gem, vary=False, fancy=False):
+def _pick(cands, used, anchor, penalty, want_gem, vary=False, fancy=False, apply_fun=False):
     ranked = sorted(
         (c for c in cands if c.get("name") and c["name"].lower() not in used),
-        key=lambda c: _score(c, anchor, penalty, want_gem, fancy), reverse=True)
+        key=lambda c: _score(c, anchor, penalty, want_gem, fancy, apply_fun), reverse=True)
     if not ranked:
         return None
     # On a "try another", pick from the strong top few for genuine variety.
@@ -216,11 +228,13 @@ def build_plan(*, lat, lng, budget, vibe=DEFAULT_VIBE, party_size=2, transport="
         else:
             search_from = center
             r = radius
+        # Fun/hype only matters for what you DO — not for a restaurant or cafe.
+        apply_fun = slot_key in ("activity", "leisure")
         cands = _gather(search_from, slot_key, price_pref, r, dietary, term_override, cat_override)
-        pick = _pick(cands, used, search_from, tconf["penalty"], (i == gem_index), vary, fancy)
+        pick = _pick(cands, used, search_from, tconf["penalty"], (i == gem_index), vary, fancy, apply_fun)
         if not pick and r < radius:
             cands = _gather(search_from, slot_key, price_pref, radius, dietary, term_override, cat_override)
-            pick = _pick(cands, used, search_from, tconf["penalty"], (i == gem_index), vary, fancy)
+            pick = _pick(cands, used, search_from, tconf["penalty"], (i == gem_index), vary, fancy, apply_fun)
         if not pick:
             continue
         used.add(pick["name"].lower())
@@ -233,6 +247,8 @@ def build_plan(*, lat, lng, budget, vibe=DEFAULT_VIBE, party_size=2, transport="
             "address": pick.get("address"), "image": pick.get("image"),
             "url": pick.get("url"), "source": pick.get("source"),
             "est_cost": _est_cost(pick, slot), "categories": pick.get("categories") or [],
+            # arousal (energy) drives the narration's emotional arc downstream.
+            "arousal": experience.arousal_for(pick.get("categories")),
         })
 
     def total():
@@ -290,11 +306,16 @@ _START_HINT = {"morning": "10:00 AM", "afternoon": "1:00 PM", "night": "8:00 PM"
 def _narrate(plan, interests, group_type, time_of_day, dietary, wx=None, events=None):
     stops = plan["stops"]
     if llm.available() and stops:
+        # The highest-arousal stop is the emotional peak — narrate the day as a
+        # build → peak → wind-down arc around it.
+        peak_idx = max(range(len(stops)), key=lambda i: stops[i].get("arousal", 2.5))
         listing = "\n".join(
             f"{i+1}. {s['label']} — {s['name']}"
             + (f" ({s['price']}, {s['rating']}★)" if s.get('rating') else "")
             + (f" [{', '.join(s['categories'][:2])}]" if s.get('categories') else "")
             + f"  ~${s['est_cost']}/pp"
+            + (" [PEAK — emotional high point of the day; write it with the most "
+               "energy and anticipation]" if i == peak_idx else "")
             for i, s in enumerate(stops))
         ctx = ", ".join(filter(None, [
             f"group: {group_type}" if group_type else "",
@@ -330,6 +351,10 @@ def _narrate(plan, interests, group_type, time_of_day, dietary, wx=None, events=
              "stops = one per venue IN ORDER: a realistic clock time (from the start time, allowing "
              "travel + dwell) and 1-2 vivid sentences about THAT venue only.\n"
              "tip = one closing line; may reference the listed venues/events by their exact names only.\n"
+             "VARY YOUR ENERGY per stop to follow the day's emotional arc: calm, unhurried language "
+             "for the early/low-key stops, building excitement and anticipation toward the stop marked "
+             "[PEAK], then an easy, satisfied wind-down after it. (This shapes TONE only — it does not "
+             "let you add, invent, or reorder any venue.)\n"
              "Confident, warm, concrete. No markdown."},
             {"role": "user", "content":
              f"Vibe: {plan['vibe']}. Budget: ${plan['budget']} for {plan['party_size']}. "
