@@ -307,17 +307,25 @@ def _narrate(plan, interests, group_type, time_of_day, dietary, wx=None, events=
         start = _START_HINT.get(time_of_day, "6:00 PM")
         msg = [
             {"role": "system", "content":
-             "You are a sharp, in-the-know local concierge. You are given a FIXED, ordered "
-             "list of real venues (already chosen and close together). Do NOT invent or swap "
-             "venues — narrate THESE. Make it feel like a friend who knows the city planning a "
-             "day people will remember. Return JSON: "
-             '{"intro": str, "stops": [{"time": str, "desc": str}, ...], "tip": str}. '
-             "intro = 2-3 sentences reasoning about the group and why this plan works. "
-             "stops = one per venue IN ORDER: a clock time (schedule them realistically from the "
-             "start time, allowing travel + dwell) and 1-2 vivid, specific sentences on what to do "
-             "there and why it fits. tip = one punchy closing line ('if it were my crew…'). "
-             "If a real live event is provided and fits the vibe, casually mention it as an "
-             "option in the intro or tip (with its time) — do NOT put it in stops. "
+             "You are Layer 3 of a strict pipeline: a formatting + narration engine, NOT a "
+             "recommender or search engine. You are given a FIXED, ordered list of REAL venues "
+             "(already retrieved from verified sources) and possibly a list of REAL events.\n"
+             "ABSOLUTE RULES (zero tolerance):\n"
+             "- Narrate ONLY the exact venues in the VENUES list. Never invent, add, swap, rename, "
+             "or substitute any place, restaurant, bar, activity, or neighbourhood-as-destination.\n"
+             "- Do NOT name any venue, business, or event that is not in the provided lists. Not in "
+             "the intro, not in a description, not in the tip. If you're unsure a name was given to "
+             "you, do not use it.\n"
+             "- Do NOT modify names, ratings, categories, or prices.\n"
+             "- Only reference an event if it appears in the EVENTS line, using its exact name/time.\n"
+             "- Use your own knowledge ONLY for tone, timing, transitions and readability — never for "
+             "facts about specific places.\n"
+             "Return JSON: {\"intro\": str, \"stops\": [{\"time\": str, \"desc\": str}, ...], \"tip\": str}.\n"
+             "intro = 2-3 sentences about the day/group/vibe — mention NO venue names that aren't in "
+             "the list (it's fine to name the listed ones or none).\n"
+             "stops = one per venue IN ORDER: a realistic clock time (from the start time, allowing "
+             "travel + dwell) and 1-2 vivid sentences about THAT venue only.\n"
+             "tip = one closing line; may reference the listed venues/events by their exact names only.\n"
              "Confident, warm, concrete. No markdown."},
             {"role": "user", "content":
              f"Vibe: {plan['vibe']}. Budget: ${plan['budget']} for {plan['party_size']}. "
