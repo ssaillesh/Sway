@@ -65,6 +65,19 @@ class Settings(BaseSettings):
     # Where the web UI is hosted; used to build the reset link in emails.
     frontend_base_url: str = "http://127.0.0.1:8080"
 
+    # --- Itinerary planner ("Wander") ---------------------------------------
+    # LLM via any OpenAI-compatible endpoint. Works with Groq or Google Gemini's
+    # OpenAI-compatible API (both free-tier). Leave llm_api_key blank to run the
+    # deterministic rule-based planner (no LLM, still functional).
+    #   Gemini: base=https://generativelanguage.googleapis.com/v1beta/openai  model=gemini-2.0-flash
+    #   Groq:   base=https://api.groq.com/openai/v1        model=llama-3.3-70b-versatile
+    llm_base_url: str = "https://generativelanguage.googleapis.com/v1beta/openai"
+    llm_api_key: str = ""
+    llm_model: str = "gemini-2.0-flash"
+
+    # Yelp Fusion (free tier: no card, ~500 calls/day). Blank → OSM only.
+    yelp_api_key: str = ""
+
     # Rate limiting (requests per window per client)
     rate_limit_requests: int = 120
     rate_limit_window_seconds: int = 60
