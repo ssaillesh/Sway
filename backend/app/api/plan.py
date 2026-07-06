@@ -49,7 +49,8 @@ _VIBE_KEYWORDS = {
 SYSTEM = """You are the planning brain for a local outing concierge app.
 Persona: a sharp, polished concierge — efficient and tasteful, minimal fluff, no rambling.
 Your job: read the whole conversation and output ONLY JSON (no prose) with these keys:
-  budget: TOTAL budget in USD (if they say a per-person amount like "$100 each", multiply by party_size), or null
+  budget: the dollar number the user stated (a range like "50-100" → use the higher end), or null
+  budget_per_person: true if that number is per-person ("$100 each", or a modest budget for a group of friends); else false
   vibe: one of chill|romantic|adventurous|extravagant|night_out, or null
   party_size: integer (default 2)
   days: integer (1 unless they mention a weekend/multi-day trip)
@@ -96,9 +97,13 @@ def _extract_days(text):
 
 def _heuristic_extract(text):
     out = {"days": _extract_days(text)}
-    m = re.search(r"\$?\s*(\d{2,4})\b", text)
-    if m:
-        out["budget"] = float(m.group(1))
+    rng = re.search(r"\$?\s*(\d{2,4})\s*(?:-|to)\s*\$?\s*(\d{2,4})", text)   # "50-100"
+    if rng:
+        out["budget"] = float(max(int(rng.group(1)), int(rng.group(2))))
+    else:
+        m = re.search(r"\$?\s*(\d{2,4})\b", text)
+        if m:
+            out["budget"] = float(m.group(1))
     for vibe, kws in _VIBE_KEYWORDS.items():
         if any(k in text for k in kws):
             out["vibe"] = vibe
@@ -180,8 +185,15 @@ def chat(req: ChatRequest):
 
     if not prefs.get("budget") and any(w in text for w in ["no limit", "no object", "unlimited"]):
         prefs["budget"] = 500
-    # "$100 each / per person" → scale to a total budget for the group.
-    if prefs.get("budget") and re.search(r"\b(each|per person|per head|a head|pp|/ ?person)\b", text):
+
+    # Group outings ("the boys") default to a bigger party and per-head budgets.
+    group_kw = any(w in text for w in ["boys", "guys", "bros", "the crew", "squad", "group of", "the group"])
+    if group_kw and not prefs.get("party_size"):
+        prefs["party_size"] = 4
+    per_person = (bool(prefs.get("budget_per_person"))
+                  or bool(re.search(r"\b(each|per person|per head|a head|pp|/ ?person)\b", text))
+                  or group_kw or prefs.get("group_type") == "friends")
+    if prefs.get("budget") and per_person:
         prefs["budget"] = float(prefs["budget"]) * int(prefs.get("party_size") or 2)
     if any(w in text for w in ["surprise", "random", "you pick", "you choose", "whatever"]):
         prefs.setdefault("budget", 100)
@@ -200,6 +212,11 @@ def chat(req: ChatRequest):
     days = int(opts.pop("days", 1) or 1)
     opts.pop("budget", None)
     budget = float(prefs["budget"])
+
+    # A "try another / something different" gives fresh picks instead of repeating.
+    last = req.messages[-1].content.lower() if req.messages else ""
+    opts["vary"] = any(w in last for w in ["another", "different", "something else",
+                                            "try again", "switch", "change it", "new plan", "not this"])
 
     if days > 1:
         trip = [Plan(**d) for d in build_trip(days=days, lat=lat, lng=lng, budget=budget, **opts) if d["stops"]]

@@ -4,6 +4,7 @@ nearby places. Optimises for: stops CLOSE together (no crossing town), best valu
 when keyed, falls back to OpenStreetMap. An optional LLM writes the narration.
 """
 import math
+import random
 
 from app.services import yelp
 from app.services.hotspots import fetch_hotspots
@@ -70,17 +71,22 @@ def _est_cost(cand, slot):
 # arcades/karting/paintball/escape rooms, not an art gallery.
 def activity_categories(group_type, vibe, interests):
     it = (interests or "").lower()
-    competitive = "arcades,escapegames,gokarts,lasertag,paintball,axethrowing,minigolf,bowling,trampoline"
-    if any(w in it for w in ["paintball", "arcade", "escape", "kart", "laser", "axe",
-                              "bowling", "competitive", "mini golf", "minigolf", "trampoline", "climb"]):
+    competitive = "arcades,escapegames,gokarts,lasertag,paintball,axethrowing,minigolf,bowling,trampoline,karaoke"
+    if any(w in it for w in ["paintball", "arcade", "escape", "kart", "laser", "axe", "bowling",
+                              "competitive", "mini golf", "minigolf", "trampoline", "climb", "karaoke"]):
         return competitive
     if group_type == "friends" or any(w in it for w in ["boys", "guys", "bros", "bachelor", "squad", "buddies"]):
         return competitive
+    # "fun & exciting" energy → active/competitive, NOT a quiet gallery.
+    if vibe in ("adventurous", "night_out"):
+        return competitive
     if group_type == "date" or vibe == "romantic":
-        return "aquariums,galleries,museums,observatories,wineries,arcades,escapegames,minigolf"
+        return "aquariums,galleries,observatories,wineries,museums,minigolf,arcades"
     if group_type == "family":
-        return "aquariums,zoos,museums,amusementparks,minigolf,bowling,arcades,trampoline"
-    return "arcades,escapegames,gokarts,bowling,minigolf,aquariums,museums,active,arts"
+        return "aquariums,zoos,amusementparks,minigolf,bowling,arcades,trampoline,museums"
+    # sensible default: fun, hands-on — deliberately no galleries/museums so they
+    # don't win on rating for someone who just wants a good time.
+    return "arcades,escapegames,gokarts,bowling,minigolf,aquariums,trampoline"
 
 
 _CUISINES = ["korean bbq", "kbbq", "bbq", "sushi", "ramen", "korean", "japanese", "italian",
@@ -130,11 +136,16 @@ def _score(c, anchor, penalty, want_gem):
     return score
 
 
-def _pick(cands, used, anchor, penalty, want_gem):
+def _pick(cands, used, anchor, penalty, want_gem, vary=False):
     ranked = sorted(
         (c for c in cands if c.get("name") and c["name"].lower() not in used),
         key=lambda c: _score(c, anchor, penalty, want_gem), reverse=True)
-    return ranked[0] if ranked else None
+    if not ranked:
+        return None
+    # On a "try another", pick from the strong top few for genuine variety.
+    if vary and len(ranked) > 1:
+        return random.choice(ranked[:min(4, len(ranked))])
+    return ranked[0]
 
 
 def _slots_for(vibe, time_of_day, group_type):
@@ -147,7 +158,7 @@ def _slots_for(vibe, time_of_day, group_type):
 
 def build_plan(*, lat, lng, budget, vibe=DEFAULT_VIBE, party_size=2, transport="any",
                time_of_day=None, group_type=None, dietary="", interests="",
-               radius=None, exclude=None):
+               radius=None, exclude=None, vary=False):
     vibe = vibe if vibe in VIBE_PLANS else DEFAULT_VIBE
     price_pref = VIBE_PLANS[vibe]["price"]
     tconf = TRANSPORT.get(transport, TRANSPORT["any"])
@@ -175,10 +186,10 @@ def build_plan(*, lat, lng, budget, vibe=DEFAULT_VIBE, party_size=2, transport="
         # if nothing decent is that close, widen to the full radius before skipping.
         r = tconf["cluster"] if i > 0 else radius
         cands = _gather(anchor, slot_key, price_pref, r, dietary, term_override, cat_override)
-        pick = _pick(cands, used, anchor, tconf["penalty"], want_gem=(i == gem_index))
+        pick = _pick(cands, used, anchor, tconf["penalty"], (i == gem_index), vary)
         if not pick and r < radius:
             cands = _gather(anchor, slot_key, price_pref, radius, dietary, term_override, cat_override)
-            pick = _pick(cands, used, anchor, tconf["penalty"], want_gem=(i == gem_index))
+            pick = _pick(cands, used, anchor, tconf["penalty"], (i == gem_index), vary)
         if not pick:
             continue
         used.add(pick["name"].lower())
