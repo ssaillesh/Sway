@@ -17,6 +17,7 @@ class PlanStop(BaseModel):
     est_cost: int
     categories: list[str] = []
     why: str | None = None
+    time: str | None = None
 
 
 class Center(BaseModel):
@@ -32,6 +33,7 @@ class Plan(BaseModel):
     estimated_cost: int
     center: Center
     intro: str | None = None
+    tip: str | None = None
     walk_km: float | None = None
     stops: list[PlanStop]
     day: int | None = None

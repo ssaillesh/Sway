@@ -66,15 +66,47 @@ def _est_cost(cand, slot):
     return PRICE_COST.get(cand.get("price"), slot["base"])
 
 
-def _gather(anchor, slot_key, price_pref, radius, dietary, term_override=None):
+# Fun, real activity categories keyed to who's going — so a boys' day gets
+# arcades/karting/paintball/escape rooms, not an art gallery.
+def activity_categories(group_type, vibe, interests):
+    it = (interests or "").lower()
+    competitive = "arcades,escapegames,gokarts,lasertag,paintball,axethrowing,minigolf,bowling,trampoline"
+    if any(w in it for w in ["paintball", "arcade", "escape", "kart", "laser", "axe",
+                              "bowling", "competitive", "mini golf", "minigolf", "trampoline", "climb"]):
+        return competitive
+    if group_type == "friends" or any(w in it for w in ["boys", "guys", "bros", "bachelor", "squad", "buddies"]):
+        return competitive
+    if group_type == "date" or vibe == "romantic":
+        return "aquariums,galleries,museums,observatories,wineries,arcades,escapegames,minigolf"
+    if group_type == "family":
+        return "aquariums,zoos,museums,amusementparks,minigolf,bowling,arcades,trampoline"
+    return "arcades,escapegames,gokarts,bowling,minigolf,aquariums,museums,active,arts"
+
+
+_CUISINES = ["korean bbq", "kbbq", "bbq", "sushi", "ramen", "korean", "japanese", "italian",
+             "steakhouse", "steak", "burgers", "burger", "pizza", "thai", "indian", "chinese",
+             "dim sum", "mexican", "tacos", "seafood", "vietnamese", "pho", "mediterranean",
+             "greek", "hotpot", "hot pot", "noodles"]
+
+
+def cuisine_term(interests, dietary):
+    s = f"{interests or ''} {dietary or ''}".lower()
+    for w in _CUISINES:
+        if w in s:
+            return w
+    return None
+
+
+def _gather(anchor, slot_key, price_pref, radius, dietary, term_override=None, cat_override=None):
     slot = SLOT_SPECS[slot_key]
     term = slot["yelp"].get("term")
     if dietary and slot_key in ("lunch", "dinner"):
         term = f"{dietary} {term or ''}".strip()
-    if term_override:                       # e.g. "aquarium" for the activity slot
+    if term_override:                       # e.g. "escape room" / "korean bbq"
         term = term_override
+    categories = cat_override or slot["yelp"].get("categories")
     cands = yelp.search(anchor[0], anchor[1], term=term,
-                        categories=slot["yelp"].get("categories"),
+                        categories=categories,
                         price=price_pref, radius=radius, limit=15, sort_by="rating")
     if len(cands) < 5:
         for h in fetch_hotspots(slot["osm"], lat=anchor[0], lng=anchor[1], radius=radius):
@@ -130,15 +162,22 @@ def build_plan(*, lat, lng, budget, vibe=DEFAULT_VIBE, party_size=2, transport="
     stops = []
     for i, slot_key in enumerate(slots):
         slot = SLOT_SPECS[slot_key]
-        # bias the activity search toward whatever the guest specifically asked for
-        term_override = interests if (slot_key == "activity" and interests) else None
+        # route the search: group-aware fun for activities, cuisine for meals.
+        term_override = cat_override = None
+        cz = cuisine_term(interests, dietary)
+        if slot_key == "activity":
+            cat_override = activity_categories(group_type, vibe, interests)
+            if interests and not cz:
+                term_override = interests          # e.g. "escape room"
+        elif slot_key in ("dinner", "lunch") and cz:
+            term_override = cz                     # e.g. "korean bbq"
         # tighter search radius around the running anchor keeps stops together;
         # if nothing decent is that close, widen to the full radius before skipping.
         r = tconf["cluster"] if i > 0 else radius
-        cands = _gather(anchor, slot_key, price_pref, r, dietary, term_override)
+        cands = _gather(anchor, slot_key, price_pref, r, dietary, term_override, cat_override)
         pick = _pick(cands, used, anchor, tconf["penalty"], want_gem=(i == gem_index))
         if not pick and r < radius:
-            cands = _gather(anchor, slot_key, price_pref, radius, dietary, term_override)
+            cands = _gather(anchor, slot_key, price_pref, radius, dietary, term_override, cat_override)
             pick = _pick(cands, used, anchor, tconf["penalty"], want_gem=(i == gem_index))
         if not pick:
             continue
@@ -193,36 +232,52 @@ def build_trip(*, days, lat, lng, budget, **opts):
     return trip
 
 
+_START_HINT = {"morning": "10:00 AM", "afternoon": "1:00 PM", "night": "8:00 PM"}
+
+
 def _narrate(plan, interests, group_type, time_of_day, dietary):
     stops = plan["stops"]
     if llm.available() and stops:
         listing = "\n".join(
-            f"- {s['label']}: {s['name']}"
+            f"{i+1}. {s['label']} — {s['name']}"
             + (f" ({s['price']}, {s['rating']}★)" if s.get('rating') else "")
             + (f" [{', '.join(s['categories'][:2])}]" if s.get('categories') else "")
-            for s in stops)
+            + f"  ~${s['est_cost']}/pp"
+            for i, s in enumerate(stops))
         ctx = ", ".join(filter(None, [
-            f"for {group_type}" if group_type else "",
-            f"{time_of_day}" if time_of_day else "",
-            f"{dietary} food" if dietary else "",
-            f"interests: {interests}" if interests else "",
+            f"group: {group_type}" if group_type else "",
+            f"time: {time_of_day}" if time_of_day else "",
+            f"dietary: {dietary}" if dietary else "",
+            f"they specifically want: {interests}" if interests else "",
         ]))
+        start = _START_HINT.get(time_of_day, "6:00 PM")
         msg = [
             {"role": "system", "content":
-             "You are a sharp, polished concierge — efficient, tasteful, minimal fluff. "
-             "Given a fixed itinerary of real nearby places, write a one-line intro and a "
-             "crisp reason (max 14 words) for each stop, noting why it fits the guest. "
-             'Return JSON {"intro": str, "why": [str,...]} with one why per stop in order.'},
+             "You are a sharp, in-the-know local concierge. You are given a FIXED, ordered "
+             "list of real venues (already chosen and close together). Do NOT invent or swap "
+             "venues — narrate THESE. Make it feel like a friend who knows the city planning a "
+             "day people will remember. Return JSON: "
+             '{"intro": str, "stops": [{"time": str, "desc": str}, ...], "tip": str}. '
+             "intro = 2-3 sentences reasoning about the group and why this plan works. "
+             "stops = one per venue IN ORDER: a clock time (schedule them realistically from the "
+             "start time, allowing travel + dwell) and 1-2 vivid, specific sentences on what to do "
+             "there and why it fits. tip = one punchy closing line ('if it were my crew…'). "
+             "Confident, warm, concrete. No markdown."},
             {"role": "user", "content":
-             f"Vibe {plan['vibe']}, ${plan['budget']} for {plan['party_size']} ({ctx or 'no extra context'}). "
-             f"Stops are within ~{plan['walk_km']}km total.\n{listing}"},
+             f"Vibe: {plan['vibe']}. Budget: ${plan['budget']} for {plan['party_size']}. "
+             f"Start around {start}. Context — {ctx or 'none given'}. "
+             f"All stops are within ~{plan['walk_km']}km of each other.\nVENUES:\n{listing}"},
         ]
         data = llm.chat_json(msg)
-        if data and isinstance(data.get("why"), list):
+        if data and isinstance(data.get("stops"), list) and data["stops"]:
             plan["intro"] = data.get("intro") or _template_intro(plan)
-            for s, why in zip(stops, data["why"]):
-                s["why"] = why
+            plan["tip"] = data.get("tip")
+            for s, extra in zip(stops, data["stops"]):
+                if isinstance(extra, dict):
+                    s["time"] = extra.get("time")
+                    s["why"] = extra.get("desc") or s.get("why")
             return
+    # deterministic fallback
     plan["intro"] = _template_intro(plan)
     for s in stops:
         bits = []

@@ -72,7 +72,10 @@
     background:rgba(94,235,212,.14); border:1px solid var(--brd); z-index:1;}
   .stop .body{flex:1; min-width:0;}
   .stop .top{display:flex; align-items:baseline; gap:8px; flex-wrap:wrap;}
+  .stop .time{font-size:11px; font-weight:800; color:#04211b; background:var(--accent); padding:2px 8px; border-radius:999px;}
   .stop .lbl{font-size:11px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; color:var(--accent);}
+  .itin .tip{margin:2px 12px 14px; padding:12px 14px; border-radius:14px; font-size:13.5px; color:var(--text);
+    background:linear-gradient(180deg,rgba(138,123,255,.14),rgba(94,235,212,.08)); border:1px solid var(--brd);}
   .stop h4{margin:2px 0; font-size:16px; font-weight:750; letter-spacing:-.01em;}
   .stop .meta{font-size:12.5px; color:var(--muted2); display:flex; gap:8px; flex-wrap:wrap; align-items:center;}
   .stop .why{font-size:13.5px; color:var(--muted); margin-top:5px;}
@@ -207,10 +210,11 @@ function stopHtml(s,i){
   const addr = s.address ? `<span>${esc(s.address)}</span>` : '';
   const gmaps = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(s.name+' '+(s.address||''))}`;
   const review = s.url ? `<a href="${esc(s.url)}" target="_blank" rel="noopener">${s.source==='yelp'?'Yelp':'Website'}</a>` : '';
+  const time = s.time ? `<span class="time">${esc(s.time)}</span>` : '';
   return `<div class="stop">
     <div class="num">${s.icon||i+1}</div>
     <div class="body">
-      <div class="top"><span class="lbl">${esc(s.label)}</span><span class="cost">~$${s.est_cost}</span></div>
+      <div class="top">${time}<span class="lbl">${esc(s.label)}</span><span class="cost">~$${s.est_cost}</span></div>
       <h4>${esc(s.name)}</h4>
       <div class="meta">${rating}${price}${cats}${addr}</div>
       ${s.why?`<div class="why">${esc(s.why)}</div>`:''}
@@ -226,7 +230,8 @@ function appendPlanCard(plan, dayLabel){
       <div class="sum"><span>💸 <b>~$${plan.estimated_cost}</b> / ${plan.party_size}</span>
         <span>✨ <b>${esc(plan.vibe.replace('_',' '))}</b></span>
         <span>📍 <b>${plan.stops.length}</b> stops</span></div>
-      <div class="stops">${plan.stops.map(stopHtml).join('')}</div></div>`;
+      <div class="stops">${plan.stops.map(stopHtml).join('')}</div>
+      ${plan.tip?`<div class="tip">💡 ${esc(plan.tip)}</div>`:''}</div>`;
   const wrap = document.createElement('div'); wrap.innerHTML = html;
   while (wrap.firstElementChild) thread.appendChild(wrap.firstElementChild);
   scrollDown(); setTimeout(()=>drawMap(id, plan), 60);

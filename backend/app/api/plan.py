@@ -49,7 +49,7 @@ _VIBE_KEYWORDS = {
 SYSTEM = """You are the planning brain for a local outing concierge app.
 Persona: a sharp, polished concierge — efficient and tasteful, minimal fluff, no rambling.
 Your job: read the whole conversation and output ONLY JSON (no prose) with these keys:
-  budget: number in USD or null
+  budget: TOTAL budget in USD (if they say a per-person amount like "$100 each", multiply by party_size), or null
   vibe: one of chill|romantic|adventurous|extravagant|night_out, or null
   party_size: integer (default 2)
   days: integer (1 unless they mention a weekend/multi-day trip)
@@ -180,6 +180,9 @@ def chat(req: ChatRequest):
 
     if not prefs.get("budget") and any(w in text for w in ["no limit", "no object", "unlimited"]):
         prefs["budget"] = 500
+    # "$100 each / per person" → scale to a total budget for the group.
+    if prefs.get("budget") and re.search(r"\b(each|per person|per head|a head|pp|/ ?person)\b", text):
+        prefs["budget"] = float(prefs["budget"]) * int(prefs.get("party_size") or 2)
     if any(w in text for w in ["surprise", "random", "you pick", "you choose", "whatever"]):
         prefs.setdefault("budget", 100)
         prefs["vibe"] = prefs.get("vibe") or random.choice(list(VIBE_PLANS))
