@@ -37,7 +37,8 @@ KEYWORD_PROFILES: dict[str, tuple[float, float]] = {
     "karaoke":     (4.0, 4.5),
     "comedy":      (3.5, 4.5),
     "musicvenue":  (4.0, 4.5),
-    "nightclub":   (3.5, 4.0),
+    "danceclub":   (4.5, 4.8),
+    "nightclub":   (4.5, 4.8),
     "bowl":        (3.0, 4.0),   # bowling / bowling_alley
     "golf":        (3.0, 4.0),   # mini golf / miniature_golf (and courses)
     # --- moderate / curious ------------------------------------------------

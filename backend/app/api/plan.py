@@ -106,6 +106,8 @@ def _extract_days(text):
     for w, n in {"two": 2, "three": 3, "four": 4, "five": 5}.items():
         if re.search(rf"\b{w}[- ]day", text):
             return n
+    if re.search(r"\bweek\b|\b7[- ]day\b|\bweek[- ]?long\b", text):
+        return 5   # cap trips at 5 days of planning
     return 1
 
 
@@ -195,9 +197,13 @@ def _resolve(req: ChatRequest):
 
     if not prefs.get("budget") and any(w in text for w in ["no limit", "no object", "unlimited"]):
         prefs["budget"] = 500
-    group_kw = any(w in text for w in ["boys", "guys", "bros", "the crew", "squad", "group of", "the group"])
-    if group_kw and not prefs.get("party_size"):
-        prefs["party_size"] = 4
+    group_kw = any(w in text for w in ["boys", "guys", "bros", "the crew", "squad", "group of",
+                                        "the group", "lads", "bachelor", "stag", "bachelorette",
+                                        "buddies", "girls night", "girls trip"])
+    if group_kw:
+        prefs["group_type"] = "friends"        # a boys'/girls' night is NOT a date
+        if not prefs.get("party_size"):
+            prefs["party_size"] = 4
     per_person = (bool(prefs.get("budget_per_person"))
                   or bool(re.search(r"\b(each|per person|per head|a head|pp|/ ?person)\b", text))
                   or group_kw or prefs.get("group_type") == "friends")

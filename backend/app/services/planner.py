@@ -39,7 +39,7 @@ SLOT_SPECS = {
     "activity":{"label": "Activity",         "icon": "🎡", "yelp": {"categories": "aquariums,zoos,museums,galleries,arcades,escapegames,amusementparks,bowling,active,arts", "term": "things to do"}, "osm": "activities", "base": 28},
     "lunch":   {"label": "Lunch",            "icon": "🥗", "yelp": {"categories": "restaurants", "term": "lunch"}, "osm": "food", "base": 18},
     "dinner":  {"label": "Dinner",           "icon": "🍽️", "yelp": {"categories": "restaurants", "term": "dinner"}, "osm": "food", "base": 30},
-    "leisure": {"label": "Vibes & drinks",   "icon": "🎶", "yelp": {"categories": "lounges,hookah_bars,cocktailbars,karaoke,comedyclubs,musicvenues,bars"}, "osm": "party", "base": 18},
+    "leisure": {"label": "Vibes & drinks",   "icon": "🎶", "yelp": {"categories": "danceclubs,nightlife,lounges,cocktailbars,hookah_bars,karaoke,comedyclubs,musicvenues,bars"}, "osm": "party", "base": 18},
     "drinks":  {"label": "Drinks",           "icon": "🍸", "yelp": {"categories": "bars,cocktailbars"}, "osm": "party", "base": 15},
     "dessert": {"label": "Sweet finish",     "icon": "🍰", "yelp": {"categories": "desserts,icecream"}, "osm": "food", "base": 10},
     "event":   {"label": "Live event",       "icon": "🎟️", "yelp": {}, "osm": "activities", "base": 40},
@@ -248,6 +248,9 @@ def build_plan(*, lat, lng, budget, vibe=DEFAULT_VIBE, party_size=2, transport="
                 term_override = interests          # e.g. "escape room"
         elif slot_key in ("dinner", "lunch") and cz:
             term_override = cz                     # e.g. "korean bbq"
+        elif slot_key == "leisure" and interests and any(
+                w in interests.lower() for w in ["club", "clubbing", "dance", "dj", "rave", "nightclub"]):
+            term_override = "nightclub"            # they explicitly want to go clubbing
         # Walk mode: chain each stop near the last for a tight walkable route.
         # City mode: search the whole central-city radius from the centre, so you
         # get the best spots across town (still bounded to the city by `radius`).
