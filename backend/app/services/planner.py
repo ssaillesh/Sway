@@ -25,6 +25,11 @@ PRICE_LEVEL = {"$": 1, "$$": 2, "$$$": 3, "$$$$": 4}
 # rating*2.0 (≈2 pts/star); fun contributes up to fun_factor*1.3 (≈6.5 max).
 FUN_WEIGHT = 1.3
 
+# How much popularity/buzz counts. Higher = favour the busy, well-known, trendy
+# spots a younger crowd wants (Cactus Club-type places with thousands of reviews)
+# over tiny high-rated gems. log10(reviews) so 2000 reviews ≈ 3.3, 80 ≈ 1.9.
+BUZZ_WEIGHT = 0.7
+
 # "activity" = real things to do (aquarium, arcade, escape room, museum, bowling…).
 # "leisure"  = evening vibes (lounge, hookah, cocktail/live-music, karaoke…).
 # Every plan is built as activity + food + leisure so it's never all restaurants.
@@ -37,7 +42,12 @@ SLOT_SPECS = {
     "leisure": {"label": "Vibes & drinks",   "icon": "🎶", "yelp": {"categories": "lounges,hookah_bars,cocktailbars,karaoke,comedyclubs,musicvenues,bars"}, "osm": "party", "base": 18},
     "drinks":  {"label": "Drinks",           "icon": "🍸", "yelp": {"categories": "bars,cocktailbars"}, "osm": "party", "base": 15},
     "dessert": {"label": "Sweet finish",     "icon": "🍰", "yelp": {"categories": "desserts,icecream"}, "osm": "food", "base": 10},
+    "event":   {"label": "Live event",       "icon": "🎟️", "yelp": {}, "osm": "activities", "base": 40},
 }
+
+# Day order used to sequence a user-assembled (picker) itinerary.
+SLOT_ORDER = {"cafe": 0, "scenic": 1, "activity": 2, "event": 3, "lunch": 4,
+              "dinner": 6, "leisure": 7, "drinks": 7, "dessert": 8}
 
 # Each vibe = activity + a meal + a leisure/finish. Price band scales with vibe.
 VIBE_PLANS = {
@@ -130,9 +140,11 @@ def _gather(anchor, slot_key, price_pref, radius, dietary, term_override=None, c
     categories = cat_override or slot["yelp"].get("categories")
     # No hard price filter — a full candidate pool means "fancier" plans never
     # starve; the price tier is applied as a soft preference in scoring instead.
+    # best_match (Yelp's relevance/popularity blend) surfaces the trendy, busy
+    # spots better than pure rating; our own scoring then re-ranks with buzz + fun.
     cands = yelp.search(anchor[0], anchor[1], term=term,
                         categories=categories,
-                        radius=radius, limit=18, sort_by="rating")
+                        radius=radius, limit=20, sort_by="best_match")
     if len(cands) < 5:
         for h in fetch_hotspots(slot["osm"], lat=anchor[0], lng=anchor[1], radius=radius):
             cands.append({"source": "osm", "name": h["name"], "lat": h["lat"], "lng": h["lng"],
@@ -151,6 +163,7 @@ def _score(c, anchor, penalty, want_gem, fancy=False, apply_fun=False):
     level = PRICE_LEVEL.get(c.get("price"), 2)
     score = rating * 2.0 - dist * penalty
     score += (level - 1) * 0.6 if fancy else -(level - 1) * 0.5   # tier preference
+    score += math.log10((c.get("review_count") or 0) + 1) * BUZZ_WEIGHT   # buzz / popularity
     if apply_fun:
         # Excitement matters here, not just satisfaction — so a high-energy
         # experience can out-rank a better-reviewed but sleepy one.
@@ -159,6 +172,22 @@ def _score(c, anchor, penalty, want_gem, fancy=False, apply_fun=False):
     if want_gem and not fancy and rc is not None and rating >= 4.0 and rc < 350:
         score += 0.8                                     # reward the under-the-radar spot
     return score
+
+
+def tag_for(c) -> tuple[str | None, str | None]:
+    """A single vibe tag for a candidate so the picker UI can show fun vs mediocre."""
+    rating = c.get("rating") or 0
+    rc = c.get("review_count") or 0
+    fun = experience.fun_factor_for(c.get("categories"))
+    if fun >= 4.0 and rc >= 150:
+        return ("🔥", "Buzzing")
+    if rating >= 4.7 and rc >= 30:
+        return ("⭐", "Top-rated")
+    if 0 < rc < 60 and rating >= 4.4:
+        return ("💎", "Hidden gem")
+    if fun <= 2.3:
+        return ("😴", "Low-key")
+    return (None, None)
 
 
 def _pick(cands, used, anchor, penalty, want_gem, vary=False, fancy=False, apply_fun=False):
@@ -298,6 +327,102 @@ def build_trip(*, days, lat, lng, budget, **opts):
             used.add(s["name"].lower())
         trip.append(plan)
     return trip
+
+
+# ===================== PICKER: options + build-from-selection =================
+
+def _to_option(c, slot_key):
+    emoji, label = tag_for(c)
+    return {
+        "slot": slot_key, "name": c.get("name"),
+        "lat": c.get("lat"), "lng": c.get("lng"),
+        "rating": c.get("rating"), "review_count": c.get("review_count"),
+        "price": c.get("price"), "categories": c.get("categories") or [],
+        "address": c.get("address"), "image": c.get("image"),
+        "url": c.get("url"), "source": c.get("source"),
+        "est_cost": _est_cost(c, SLOT_SPECS[slot_key]),
+        "arousal": experience.arousal_for(c.get("categories")),
+        "tag": emoji, "tag_label": label,
+    }
+
+
+def gather_options(slot_key, *, lat, lng, vibe=DEFAULT_VIBE, group_type=None,
+                   interests="", dietary="", transport="any", limit=6):
+    """Ranked, tagged candidate venues for one category — the picker's menu."""
+    tconf = TRANSPORT.get(transport, TRANSPORT["any"])
+    price_pref = VIBE_PLANS.get(vibe, VIBE_PLANS[DEFAULT_VIBE])["price"]
+    term_override = cat_override = None
+    cz = cuisine_term(interests, dietary)
+    if slot_key == "activity":
+        cat_override = activity_categories(group_type, vibe, interests)
+        if interests and not cz:
+            term_override = interests
+    elif slot_key in ("dinner", "lunch") and cz:
+        term_override = cz
+    cands = _gather((lat, lng), slot_key, price_pref, tconf["radius"], dietary, term_override, cat_override)
+    apply_fun = slot_key in ("activity", "leisure")
+    fancy = vibe == "extravagant"
+    ranked = sorted((c for c in cands if c.get("name")),
+                    key=lambda c: _score(c, (lat, lng), tconf["penalty"], False, fancy, apply_fun),
+                    reverse=True)
+    seen, out = set(), []
+    for c in ranked:
+        n = c["name"].lower()
+        if n in seen:
+            continue
+        seen.add(n)
+        out.append(_to_option(c, slot_key))
+        if len(out) >= limit:
+            break
+    return out
+
+
+def option_sections(time_of_day, vibe, group_type):
+    """Which category sections the picker shows, given the intent."""
+    secs = []
+    day = time_of_day in ("morning", "afternoon")
+    if day:
+        secs.append(("cafe", "Coffee & warm-up", "☕", "optional"))
+    secs.append(("activity", "Activity", "🎡", "pick 1–2"))
+    if day:
+        secs.append(("lunch", "Lunch", "🥗", "pick 1"))
+    secs.append(("dinner", "Dinner", "🍽️", "pick 1"))
+    if group_type not in ("family", "kids"):
+        secs.append(("leisure", "Drinks & vibes", "🎶", "optional"))
+    secs.append(("dessert", "Sweet finish", "🍰", "optional"))
+    return secs
+
+
+def build_from_selection(selections, *, lat, lng, party_size=2, budget=0,
+                         vibe=DEFAULT_VIBE, interests="", group_type=None,
+                         time_of_day=None, dietary=""):
+    """Assemble + sequence + narrate an itinerary from the user's picked venues."""
+    stops = []
+    for sel in selections:
+        slot_key = sel.get("slot", "activity")
+        spec = SLOT_SPECS.get(slot_key, SLOT_SPECS["activity"])
+        stops.append({
+            "slot": slot_key, "label": spec["label"], "icon": spec["icon"],
+            "name": sel.get("name"), "lat": sel.get("lat"), "lng": sel.get("lng"),
+            "rating": sel.get("rating"), "price": sel.get("price"),
+            "address": sel.get("address"), "image": sel.get("image"),
+            "url": sel.get("url"), "source": sel.get("source"),
+            "est_cost": sel.get("est_cost") if sel.get("est_cost") is not None else _est_cost(sel, spec),
+            "categories": sel.get("categories") or [],
+            "arousal": sel.get("arousal") if sel.get("arousal") is not None else experience.arousal_for(sel.get("categories")),
+        })
+    stops.sort(key=lambda s: SLOT_ORDER.get(s["slot"], 5))
+    total = sum(s["est_cost"] for s in stops) * max(1, party_size)
+    spread = 0.0
+    for a, b in zip(stops, stops[1:]):
+        spread += _haversine_km(a["lat"], a["lng"], b["lat"], b["lng"])
+    plan = {
+        "vibe": vibe, "budget": budget or total, "party_size": party_size, "currency": "USD",
+        "estimated_cost": total, "center": {"lat": lat, "lng": lng},
+        "walk_km": round(spread, 1), "stops": stops, "weather": None, "events": [],
+    }
+    _narrate(plan, interests, group_type, time_of_day, dietary, None, None)
+    return plan
 
 
 _START_HINT = {"morning": "10:00 AM", "afternoon": "1:00 PM", "night": "8:00 PM"}

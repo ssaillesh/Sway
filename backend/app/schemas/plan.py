@@ -74,3 +74,53 @@ class ChatResponse(BaseModel):
     plan: Plan | None = None          # single-day
     days: list[Plan] = Field(default_factory=list)  # multi-day trip
     title: str | None = None
+
+
+# ---- picker (build-your-own itinerary) ----
+class Option(BaseModel):
+    slot: str
+    name: str
+    lat: float | None = None
+    lng: float | None = None
+    rating: float | None = None
+    review_count: int | None = None
+    price: str | None = None
+    categories: list[str] = Field(default_factory=list)
+    address: str | None = None
+    image: str | None = None
+    url: str | None = None
+    source: str | None = None
+    est_cost: int
+    arousal: float | None = None
+    tag: str | None = None            # 🔥 / ⭐ / 💎 / 😴
+    tag_label: str | None = None
+
+
+class Section(BaseModel):
+    key: str
+    label: str
+    icon: str
+    hint: str
+    options: list[Option]
+
+
+class OptionsResponse(BaseModel):
+    ok: bool = True
+    message: str | None = None
+    location: dict | None = None      # {lat, lng}
+    context: dict = Field(default_factory=dict)   # vibe, budget, party_size, …
+    sections: list[Section] = Field(default_factory=list)
+    events: list[Event] = Field(default_factory=list)
+
+
+class BuildRequest(BaseModel):
+    selections: list[dict]            # picked Option/event dicts (flexible shape)
+    lat: float
+    lng: float
+    party_size: int = 2
+    budget: float = 0
+    vibe: str = "romantic"
+    interests: str = ""
+    group_type: str | None = None
+    time_of_day: str | None = None
+    dietary: str = ""

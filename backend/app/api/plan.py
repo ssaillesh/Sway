@@ -11,10 +11,15 @@ import re
 from fastapi import APIRouter
 
 from app.config import settings
-from app.schemas.plan import ChatRequest, ChatResponse, Plan
+from app.schemas.plan import (
+    ChatRequest, ChatResponse, Plan, Option, Section, OptionsResponse, BuildRequest, Event,
+)
 from app.services import llm, yelp
+from app.services import events as events_svc
 from app.services.geocoding import geocode
-from app.services.planner import build_plan, build_trip, VIBE_PLANS
+from app.services.planner import (
+    build_plan, build_trip, VIBE_PLANS, gather_options, option_sections, build_from_selection,
+)
 
 router = APIRouter(prefix="/plan", tags=["planner"])
 
@@ -175,27 +180,21 @@ def _needs(prefs):
     return None
 
 
-@router.post("/chat", response_model=ChatResponse)
-def chat(req: ChatRequest):
+def _resolve(req: ChatRequest):
+    """Shared: extract prefs + resolve the location. Returns (lat, lng, prefs)."""
     text = _joined_user_text(req)
     prefs = (_llm_extract(req) if llm.available() else None) or _heuristic_extract(text)
 
-    # Where to plan: a city the user named wins over the device pin. This also
-    # lets people plan for a place they're not currently standing in.
+    # A city the user names wins over the device pin.
     lat, lng = req.lat, req.lng
     loc_name = prefs.get("location") or _extract_location(_orig_user_text(req))
     if loc_name:
         coords = geocode(loc_name, None)
         if coords:
             lat, lng = coords
-    if lat is None or lng is None:
-        return ChatResponse(type="message",
-            message="Tell me where — enable location, or just name a city (e.g. \"in Toronto\") — plus your budget and vibe.")
 
     if not prefs.get("budget") and any(w in text for w in ["no limit", "no object", "unlimited"]):
         prefs["budget"] = 500
-
-    # Group outings ("the boys") default to a bigger party and per-head budgets.
     group_kw = any(w in text for w in ["boys", "guys", "bros", "the crew", "squad", "group of", "the group"])
     if group_kw and not prefs.get("party_size"):
         prefs["party_size"] = 4
@@ -209,13 +208,11 @@ def chat(req: ChatRequest):
         prefs["vibe"] = prefs.get("vibe") or random.choice(list(VIBE_PLANS))
     if not prefs.get("days"):
         prefs["days"] = _extract_days(text)
-    # A "full day / day trip" starts in the morning so it fills breakfast → night.
     if not prefs.get("time_of_day") and any(k in text for k in
             ["full day", "all day", "whole day", "entire day", "day trip", "the whole thing"]):
         prefs["time_of_day"] = "morning"
 
-    # Deterministic follow-ups: "make it fancier/cheaper" reliably shift the tier
-    # (don't leave it to the LLM to re-infer the vibe each turn).
+    # Deterministic "make it fancier/cheaper" tier shifts.
     last = req.messages[-1].content.lower() if req.messages else ""
     if any(w in last for w in ["fancier", "fancy", "nicer", "upscale", "classier", "classy",
                                "bougie", "boujee", "high end", "high-end", "luxury", "luxurious",
@@ -228,6 +225,17 @@ def chat(req: ChatRequest):
     elif any(w in last for w in ["cheaper", "cheap", "budget friendly", "more affordable",
                                  "affordable", "save money", "less expensive", "cost less", "on a budget"]):
         prefs["vibe"] = "chill"
+    return lat, lng, prefs
+
+
+@router.post("/chat", response_model=ChatResponse)
+def chat(req: ChatRequest):
+    text = _joined_user_text(req)
+    last = req.messages[-1].content.lower() if req.messages else ""
+    lat, lng, prefs = _resolve(req)
+    if lat is None or lng is None:
+        return ChatResponse(type="message",
+            message="Tell me where — enable location, or just name a city (e.g. \"in Toronto\") — plus your budget and vibe.")
 
     missing = _needs(prefs)
     if missing:
@@ -259,3 +267,56 @@ def chat(req: ChatRequest):
         return ChatResponse(type="message", message="I couldn't source enough open spots nearby for that. A larger budget or different vibe?")
     plan = Plan(**plan_dict)
     return ChatResponse(type="itinerary", message=plan.intro or "Your plan:", plan=plan)
+
+
+@router.post("/options", response_model=OptionsResponse)
+def options(req: ChatRequest):
+    """Build-your-own: ranked, tagged candidate venues per category to pick from."""
+    lat, lng, prefs = _resolve(req)
+    if lat is None or lng is None:
+        return OptionsResponse(ok=False,
+            message="Enable location or name a city (e.g. \"in Toronto\") so I can pull nearby options.")
+
+    vibe = prefs.get("vibe") or "adventurous"
+    group_type = prefs.get("group_type")
+    time_of_day = prefs.get("time_of_day")
+    interests = prefs.get("interests", "") or ""
+    dietary = prefs.get("dietary", "") or ""
+    transport = prefs.get("transport", "any") or "any"
+    party_size = int(prefs.get("party_size") or 2)
+    budget = prefs.get("budget")
+
+    sections = []
+    for slot_key, label, icon, hint in option_sections(time_of_day, vibe, group_type):
+        opts = gather_options(slot_key, lat=lat, lng=lng, vibe=vibe, group_type=group_type,
+                              interests=interests, dietary=dietary, transport=transport, limit=6)
+        if opts:
+            sections.append(Section(key=slot_key, label=label, icon=icon, hint=hint,
+                                    options=[Option(**o) for o in opts]))
+
+    events = []
+    if events_svc.available():
+        cls = events_svc.classification_for(vibe, interests)
+        events = [Event(**e) for e in events_svc.search_events(lat, lng, radius_km=25, size=6, classification=cls)]
+
+    return OptionsResponse(
+        ok=True, location={"lat": lat, "lng": lng},
+        context={"vibe": vibe, "budget": budget, "party_size": party_size,
+                 "group_type": group_type, "time_of_day": time_of_day,
+                 "interests": interests, "dietary": dietary, "transport": transport},
+        sections=sections, events=events)
+
+
+@router.post("/build", response_model=ChatResponse)
+def build(req: BuildRequest):
+    """Assemble + sequence + narrate an itinerary from the user's picked venues."""
+    if not req.selections:
+        return ChatResponse(type="message", message="Pick at least one spot to build your itinerary.")
+    plan_dict = build_from_selection(
+        req.selections, lat=req.lat, lng=req.lng, party_size=req.party_size,
+        budget=req.budget, vibe=req.vibe, interests=req.interests,
+        group_type=req.group_type, time_of_day=req.time_of_day, dietary=req.dietary)
+    if not plan_dict["stops"]:
+        return ChatResponse(type="message", message="Couldn't build that — try picking a few spots.")
+    plan = Plan(**plan_dict)
+    return ChatResponse(type="itinerary", message=plan.intro or "Your itinerary:", plan=plan)
