@@ -107,7 +107,8 @@ WATER_ACTIVITIES = ("rafting,paddleboarding,surfing,sailing,boatcharters,boattou
                     "waterparks,snorkeling,divingcenters,beaches,lakes")
 _WATER_WORDS = ["kayak", "canoe", "paddle", "waterbike", "water bike", "water biking",
                 "jet ski", "jetski", "boat", "sail", "surf", "snorkel", "scuba", "raft",
-                "swim", "beach", "on the water", "water activities", "water sports", "lake"]
+                "swim", "beach", "on the water", "water activities", "water sports",
+                "watersport", "lake"]
 
 
 def wants_water(interests, text=""):
@@ -174,6 +175,21 @@ def interest_term_for(slot_key, interests):
         if w in it:
             return w
     return None
+
+
+def _tokens(s):
+    return [t.strip() for t in re.split(r"[,;/]| and | or ", (s or "").lower()) if len(t.strip()) >= 3]
+
+
+def avoid_match(c, avoid):
+    """True when a candidate is something the user said NOT to do — matched
+    against its name and categories, singular/plural tolerant ('parks'→'park')."""
+    toks = _tokens(avoid)
+    if not toks:
+        return False
+    hay = (c.get("name") or "").lower() + " " + " ".join(
+        str(x).lower() for x in (c.get("categories") or []))
+    return any(t.rstrip("s") in hay for t in toks)
 
 
 def _interest_bonus(c, interests):
@@ -292,7 +308,7 @@ def _slots_for(vibe, time_of_day, group_type, length):
 
 
 def build_plan(*, lat, lng, budget, vibe=DEFAULT_VIBE, party_size=2, transport="any",
-               time_of_day=None, group_type=None, dietary="", interests="",
+               time_of_day=None, group_type=None, dietary="", interests="", avoid="",
                radius=None, exclude=None, vary=False, target_stops=4):
     vibe = vibe if vibe in VIBE_PLANS else DEFAULT_VIBE
     price_pref = VIBE_PLANS[vibe]["price"]
@@ -351,10 +367,12 @@ def build_plan(*, lat, lng, budget, vibe=DEFAULT_VIBE, party_size=2, transport="
             r = radius
         # Fun/hype only matters for what you DO — not for a restaurant or cafe.
         apply_fun = slot_key in ("activity", "leisure")
-        cands = _gather(search_from, slot_key, price_pref, r, dietary, term_override, cat_override)
+        cands = [c for c in _gather(search_from, slot_key, price_pref, r, dietary, term_override, cat_override)
+                 if not avoid_match(c, avoid)]
         pick = _pick(cands, used, search_from, tconf["penalty"], (i == gem_index), vary, fancy, apply_fun, interests)
         if not pick and r < radius:
-            cands = _gather(search_from, slot_key, price_pref, radius, dietary, term_override, cat_override)
+            cands = [c for c in _gather(search_from, slot_key, price_pref, radius, dietary, term_override, cat_override)
+                     if not avoid_match(c, avoid)]
             pick = _pick(cands, used, search_from, tconf["penalty"], (i == gem_index), vary, fancy, apply_fun, interests)
         if not pick:
             continue
@@ -404,7 +422,7 @@ def build_plan(*, lat, lng, budget, vibe=DEFAULT_VIBE, party_size=2, transport="
         "weather": (wx["summary"] if wx else None),
         "events": events,
     }
-    _narrate(plan, interests, group_type, time_of_day, dietary, wx, events)
+    _narrate(plan, interests, group_type, time_of_day, dietary, wx, events, avoid)
     return plan
 
 
@@ -439,7 +457,7 @@ def _to_option(c, slot_key):
 
 
 def gather_options(slot_key, *, lat, lng, vibe=DEFAULT_VIBE, group_type=None,
-                   interests="", dietary="", transport="any", limit=6):
+                   interests="", dietary="", transport="any", avoid="", limit=6):
     """Ranked, tagged candidate venues for one category — the picker's menu."""
     tconf = TRANSPORT.get(transport, TRANSPORT["any"])
     price_pref = VIBE_PLANS.get(vibe, VIBE_PLANS[DEFAULT_VIBE])["price"]
@@ -455,7 +473,8 @@ def gather_options(slot_key, *, lat, lng, vibe=DEFAULT_VIBE, group_type=None,
         t = interest_term_for(slot_key, interests)
         if t:
             term_override = "nightclub" if t in ("clubbing", "club", "dance", "dj", "rave") else t
-    cands = _gather((lat, lng), slot_key, price_pref, tconf["radius"], dietary, term_override, cat_override)
+    cands = [c for c in _gather((lat, lng), slot_key, price_pref, tconf["radius"], dietary, term_override, cat_override)
+             if not avoid_match(c, avoid)]
     apply_fun = slot_key in ("activity", "leisure")
     fancy = vibe == "extravagant"
     ranked = sorted((c for c in cands if c.get("name")),
@@ -525,7 +544,7 @@ def build_from_selection(selections, *, lat, lng, party_size=2, budget=0,
 _START_HINT = {"morning": "10:00 AM", "afternoon": "1:00 PM", "night": "8:00 PM"}
 
 
-def _narrate(plan, interests, group_type, time_of_day, dietary, wx=None, events=None):
+def _narrate(plan, interests, group_type, time_of_day, dietary, wx=None, events=None, avoid=""):
     stops = plan["stops"]
     if llm.available() and stops:
         # The highest-arousal stop is the emotional peak — narrate the day as a
@@ -544,6 +563,7 @@ def _narrate(plan, interests, group_type, time_of_day, dietary, wx=None, events=
             f"time: {time_of_day}" if time_of_day else "",
             f"dietary: {dietary}" if dietary else "",
             f"they specifically want: {interests}" if interests else "",
+            f"they do NOT want: {avoid} — never present a stop as that thing" if avoid else "",
             f"weather today: {wx['summary']} (kept it indoors)" if wx and (wx.get("rainy") or wx.get("cold")) else "",
         ]))
         ev_line = ""

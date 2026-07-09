@@ -386,11 +386,18 @@ function suggestEvents(plan, idx=0){
   if (idx >= evs.length || idx >= 2) return;         // suggest at most two
   const ev = evs[idx];
   const when = evWhen(ev);
-  const price = ev.price_min ? ` (from $${Math.round(ev.price_min)})` : '';
-  addMsg('assistant', esc(`One more thing — ${ev.name}${ev.venue?` at ${ev.venue}`:''}${when?`, ${when}`:''}${price} is on nearby. Want me to add it to your plan?`));
+  const price = ev.price_min
+    ? ` Tickets run $${Math.round(ev.price_min)}${ev.price_max && ev.price_max !== ev.price_min ? `–$${Math.round(ev.price_max)}` : '+'}.`
+    : ` The organizer hasn't published pricing — the tickets page has current prices.`;
+  addMsg('assistant', esc(`One more thing — ${ev.name}${ev.venue?` at ${ev.venue}`:''}${when?`, ${when}`:''} is on nearby.${price} Want me to add it to your plan?`));
   const q = document.createElement('div'); q.className = 'quick';
   const yes = document.createElement('button'); yes.className='chip'; yes.textContent='🎟️ Yes, add it';
   const no  = document.createElement('button'); no.className='chip'; no.textContent='🙅 No thanks';
+  if (ev.url){
+    const tix = document.createElement('button'); tix.className='chip'; tix.textContent='🎫 Check price & tickets';
+    tix.onclick = ()=> window.open(ev.url, '_blank', 'noopener');
+    q.appendChild(tix);
+  }
   const done = (took) => {
     q.remove();
     if (took){

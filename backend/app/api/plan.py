@@ -16,7 +16,7 @@ from app.schemas.plan import (
 )
 from app.services import foursquare, llm, yelp
 from app.services import events as events_svc
-from app.services.geocoding import geocode
+from app.services.geocoding import geocode, geocode_place
 from app.services.planner import (
     build_plan, build_trip, VIBE_PLANS, gather_options, option_sections, build_from_selection,
     _WATER_WORDS,
@@ -68,6 +68,9 @@ Your job: read the whole conversation and output ONLY JSON (no prose) with these
   dietary: short string of food prefs/restrictions, or ""
   location: a city/neighbourhood the user names to plan in (e.g. "Toronto", "Kensington Market"), or null
   interests: short string of specific things they want (e.g. "aquarium, hookah, rec room"), or ""
+  avoid: short string of things they explicitly do NOT want (e.g. "parks, museums, clubbing"), or "".
+    Treat "no X", "not X", "don't want X", "skip X", "anything but X" as avoid — and NEVER
+    leave a rejected thing in interests.
   ready: true ONLY if budget AND vibe are known
   question: if not ready, ONE concise concierge-style question to get the missing essentials
   quick_replies: array of 2-5 short tappable answers for that question
@@ -110,6 +113,63 @@ def _extract_location(orig_text):
     return m.group(1).strip() if m else None
 
 
+# Words that are never a city — vibes, budget talk, planning chatter — so the
+# place-name guesser doesn't waste geocode calls (or hit a village named "Fancy").
+_LOC_NOISE = set("""
+anywhere somewhere nearby here there chill chilling chilled relax relaxed romantic
+adventurous adventure extravagant fancy luxury upscale vibe vibes mood budget total
+around about range looking look feel feeling something anything plan plans planning
+night evening morning afternoon tonight today tomorrow weekend week date dinner lunch
+brunch breakfast drinks dessert coffee friends family solo group crew boys girls guys
+buddies squad please thanks thank want wants need needs cheap cheaper free from with
+without this that these those just like love hate maybe kind sort city town area local
+place places nothing whatever surprise random walk walking transit drive driving car
+dollars bucks cash money spend spending doing going make makes give gives
+""".split())
+
+
+def _guess_location_coords(req):
+    """Last resort when nothing else located the user: pull plausible place names
+    straight out of the messages (newest first) and geocode them, restricted to
+    real settlements. Handles a bare "Miami" or a lowercase "waterloo"."""
+    attempts = 0
+    for m in reversed(req.messages):
+        if m.role != "user" or attempts >= 4:
+            continue
+        text = m.content
+
+        # "waterloo to toronto" / "between X and Y": geocode both ends; if they're
+        # the same region use the midpoint, else trust the better-known second one
+        # (a bare "waterloo" alone can resolve to the wrong continent).
+        rng = re.search(r"\b([A-Za-z'’.-]{3,})\s+(?:to|and|-|through)\s+([A-Za-z'’.-]{3,})\b", text)
+        if rng and not any(w.lower() in _LOC_NOISE for w in rng.groups()):
+            a, b = geocode_place(rng.group(1)), geocode_place(rng.group(2))
+            attempts += 2
+            if a and b:
+                dlat, dlng = abs(a[0] - b[0]), abs(a[1] - b[1])
+                if dlat < 2 and dlng < 2:   # same region → plan around the middle
+                    return ((a[0] + b[0]) / 2, (a[1] + b[1]) / 2)
+                return b
+            if a or b:
+                return a or b
+
+        cands = re.findall(r"\b[A-Z][a-z'’.-]+(?:\s+[A-Z][a-z'’.-]+){0,2}\b", text)  # capitalized first
+        cands += re.findall(r"\b[a-z][a-z'’.-]{3,}\b", text)
+        seen = set()
+        for cand in cands:
+            lc = cand.lower()
+            if lc in seen or lc in _LOC_NOISE or any(w in _LOC_NOISE for w in lc.split()):
+                continue
+            seen.add(lc)
+            attempts += 1
+            coords = geocode_place(cand)
+            if coords:
+                return coords
+            if attempts >= 4:
+                break
+    return None
+
+
 def _target_stops(text, time_of_day):
     """How many stops to fill — a whole day is more; an evening is fewer."""
     if any(k in text for k in ["full day", "all day", "whole day", "entire day", "day trip",
@@ -131,6 +191,27 @@ def _extract_days(text):
     if re.search(r"\bweek\b|\b7[- ]day\b|\bweek[- ]?long\b", text):
         return 5   # cap trips at 5 days of planning
     return 1
+
+
+# "no parks", "i don't want to do museums", "skip the clubbing", "without bars"…
+_AVOID_RE = re.compile(
+    r"(?:\bno\b|\bnot\b|\bskip\b|\bavoid\b|\bwithout\b|\bhate\b|\bdislike\b"
+    r"|(?:do not|don'?t|rather not)(?:\s+want)?(?:\s+to)?(?:\s+(?:do|go to|visit|see))?)"
+    r"\s+(?:the\s+|any\s+|doing\s+|more\s+)?([a-z][a-z '&-]{2,38}?)"
+    r"(?=[,.!?;]|$|\s+(?:please|though|tho|but|can|instead|today|tonight)\b)")
+
+# "no limit / no cap / not sure"-style phrases are not avoids
+_AVOID_NOISE = ("limit", "cap", "sure", "idea", "preference", "budget", "alcohol", "drink")
+
+
+def _extract_avoid(text):
+    hits = []
+    for m in _AVOID_RE.finditer(text):
+        for t in re.split(r"\s+(?:and|or)\s+|,", m.group(1)):
+            t = re.sub(r"^(?:into|going to|doing|to do|going)\s+", "", t.strip())
+            if t and t.split()[0] not in _AVOID_NOISE:
+                hits.append(t)
+    return ", ".join(dict.fromkeys(hits))
 
 
 def _heuristic_extract(text):
@@ -185,7 +266,7 @@ def _clean(prefs):
     """Drop null/empty so build_plan uses its own defaults."""
     keep = {}
     for k in ("budget", "vibe", "party_size", "days", "time_of_day",
-              "transport", "group_type", "dietary", "interests"):
+              "transport", "group_type", "dietary", "interests", "avoid"):
         v = prefs.get(k)
         if v not in (None, "", "null"):
             keep[k] = v
@@ -216,10 +297,27 @@ def _resolve(req: ChatRequest):
         coords = geocode(loc_name, None)
         if coords:
             lat, lng = coords
+    if lat is None or lng is None:
+        coords = _guess_location_coords(req)
+        if coords:
+            lat, lng = coords
+
+    # "Don't want X" is a hard rule: merge the LLM's `avoid` with the regex catch,
+    # and scrub avoided things back out of interests so they can't sneak in.
+    avoid_bits = [b for b in [prefs.get("avoid"), _extract_avoid(text)] if b]
+    avoid = ", ".join(dict.fromkeys(", ".join(avoid_bits).split(", "))) if avoid_bits else ""
+    if avoid:
+        prefs["avoid"] = avoid
+        av_toks = [t.strip().rstrip("s") for t in avoid.split(",") if t.strip()]
+        if prefs.get("interests"):
+            prefs["interests"] = ", ".join(
+                w for w in re.split(r"[,;]", prefs["interests"])
+                if w.strip() and not any(t in w.lower() for t in av_toks))
 
     # Water activities (kayaking, waterbiking, beach…) count as an interest even
     # when the extractor misses them, so the planner routes to water venues.
-    water_hits = [w for w in _WATER_WORDS if w in text]
+    water_hits = [w for w in _WATER_WORDS if w in text and not any(
+        t.strip().rstrip("s") in w for t in (avoid or "").split(",") if t.strip())]
     if water_hits and not any(w in (prefs.get("interests") or "").lower() for w in _WATER_WORDS):
         prefs["interests"] = ", ".join(filter(None, [prefs.get("interests"), *water_hits[:3]]))
 
@@ -326,7 +424,8 @@ def options(req: ChatRequest):
     sections = []
     for slot_key, label, icon, hint in option_sections(time_of_day, vibe, group_type):
         opts = gather_options(slot_key, lat=lat, lng=lng, vibe=vibe, group_type=group_type,
-                              interests=interests, dietary=dietary, transport=transport, limit=6)
+                              interests=interests, dietary=dietary, transport=transport,
+                              avoid=prefs.get("avoid", "") or "", limit=6)
         if opts:
             sections.append(Section(key=slot_key, label=label, icon=icon, hint=hint,
                                     options=[Option(**o) for o in opts]))

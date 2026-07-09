@@ -69,6 +69,35 @@ def geocode(city: str, country: str | None) -> tuple[float, float] | None:
     return lat, lng
 
 
+def geocode_place(name: str) -> tuple[float, float] | None:
+    """Geocode restricted to settlements (cities/towns/villages) — safe for
+    guessing place names out of free text, since ordinary words won't match."""
+    if not name or len(name) < 3:
+        return None
+    key = f"geoplace:{name.strip().lower()}"
+    cached = redis_client.get(key)
+    if cached is not None:
+        data = json.loads(cached)
+        return (data["lat"], data["lng"]) if data else None
+
+    params = {"q": name, "format": "json", "limit": 1,
+              "addressdetails": 0, "featuretype": "settlement"}
+    try:
+        _throttle()
+        resp = httpx.get(settings.nominatim_url, params=params,
+                         headers={"User-Agent": settings.geocode_user_agent}, timeout=15.0)
+        resp.raise_for_status()
+        results = resp.json()
+    except (httpx.HTTPError, ValueError):
+        return None
+    if not results:
+        redis_client.setex(key, settings.geocode_cache_ttl, json.dumps(None))
+        return None
+    lat, lng = float(results[0]["lat"]), float(results[0]["lon"])
+    redis_client.setex(key, settings.geocode_cache_ttl, json.dumps({"lat": lat, "lng": lng}))
+    return lat, lng
+
+
 def _reverse_url() -> str:
     """Nominatim reverse endpoint, derived from the configured /search URL."""
     return settings.nominatim_url.rsplit("/search", 1)[0] + "/reverse"
