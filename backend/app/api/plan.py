@@ -1,4 +1,5 @@
-"""Chat-driven itinerary concierge. Public (no auth) — the product's front door.
+"""Chat-driven itinerary concierge. Requires a signed-in account — the LLM
+planner is a members-only feature (debug stays open for ops).
 
 With an LLM key it runs as a sharp concierge that reads the whole conversation,
 extracts what it needs, asks one focused follow-up when required, then builds a
@@ -8,13 +9,15 @@ key it degrades to a keyword heuristic so the app still works.
 import random
 import re
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
 from app.config import settings
+from app.middleware.auth import get_current_user
+from app.models import User
 from app.schemas.plan import (
     ChatRequest, ChatResponse, Plan, Option, Section, OptionsResponse, BuildRequest, Event,
 )
-from app.services import foursquare, llm, yelp
+from app.services import foursquare, google_places, llm, yelp
 from app.services import events as events_svc
 from app.services.geocoding import geocode, geocode_place
 from app.services.planner import (
@@ -37,6 +40,7 @@ def debug():
         "llm_test_detail": detail,
         "yelp_configured": yelp.available(),
         "foursquare_configured": foursquare.available(),
+        "google_places_configured": google_places.available(),
         "ticketmaster_configured": events_svc.available(),
     }
 
@@ -340,9 +344,11 @@ def _resolve(req: ChatRequest):
                   or group_kw or prefs.get("group_type") == "friends")
     if prefs.get("budget") and per_person:
         prefs["budget"] = float(prefs["budget"]) * int(prefs.get("party_size") or 2)
-    if any(w in text for w in ["surprise", "random", "you pick", "you choose", "whatever"]):
+    if req.surprise or any(w in text for w in ["surprise", "random", "you pick", "you choose", "whatever"]):
+        prefs["surprise"] = True
         prefs.setdefault("budget", 100)
-        prefs["vibe"] = prefs.get("vibe") or random.choice(list(VIBE_PLANS))
+        rng = random.Random(req.seed) if req.seed is not None else random
+        prefs["vibe"] = prefs.get("vibe") or rng.choice(list(VIBE_PLANS))
     if not prefs.get("days"):
         prefs["days"] = _extract_days(text)
     if not prefs.get("time_of_day") and any(k in text for k in
@@ -366,7 +372,7 @@ def _resolve(req: ChatRequest):
 
 
 @router.post("/chat", response_model=ChatResponse)
-def chat(req: ChatRequest):
+def chat(req: ChatRequest, user: User = Depends(get_current_user)):
     req = _fresh_cut(req)
     text = _joined_user_text(req)
     last = req.messages[-1].content.lower() if req.messages else ""
@@ -388,9 +394,15 @@ def chat(req: ChatRequest):
     budget = float(prefs["budget"])
 
     # A "try another / something different" gives fresh picks instead of repeating.
-    opts["vary"] = any(w in last for w in ["another", "different", "something else",
+    # A client-sent exclude list (venues already shown) also counts as a re-roll.
+    opts["vary"] = bool(req.exclude) or any(w in last for w in ["another", "different", "something else",
                                             "try again", "switch", "change it", "new plan",
                                             "not this", "plan b"])
+    opts["surprise"] = bool(prefs.get("surprise"))
+    if req.seed is not None:
+        opts["seed"] = req.seed
+    if req.exclude:
+        opts["exclude"] = {n.lower() for n in req.exclude if n}
     # How full to make the day (whole day → more stops; evening → fewer).
     opts["target_stops"] = _target_stops(text, opts.get("time_of_day"))
 
@@ -416,7 +428,7 @@ def chat(req: ChatRequest):
 
 
 @router.post("/options", response_model=OptionsResponse)
-def options(req: ChatRequest):
+def options(req: ChatRequest, user: User = Depends(get_current_user)):
     """Build-your-own: ranked, tagged candidate venues per category to pick from."""
     req = _fresh_cut(req)
     lat, lng, prefs = _resolve(req)
@@ -456,7 +468,7 @@ def options(req: ChatRequest):
 
 
 @router.post("/build", response_model=ChatResponse)
-def build(req: BuildRequest):
+def build(req: BuildRequest, user: User = Depends(get_current_user)):
     """Assemble + sequence + narrate an itinerary from the user's picked venues."""
     if not req.selections:
         return ChatResponse(type="message", message="Pick at least one spot to build your itinerary.")

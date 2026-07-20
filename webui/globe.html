@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>Roamly — Hotspots & Map</title>
 <meta name="description" content="Your lifetime travel, reconstructed from photo metadata and plotted on an interactive 3D globe. Verified, un-fakeable." />
-<meta name="theme-color" content="#070b18" />
+<meta name="theme-color" content="#0b0b0f" />
 <meta property="og:title" content="Roamly — Hotspots & Map" />
 <meta property="og:description" content="A 3D globe of everywhere you've actually been, proven by your photos." />
 <meta property="og:type" content="website" />
@@ -16,10 +16,10 @@
 
 <style>
   :root{
-    --accent:#5eebd4; --accent2:#738cff;
-    --bg0:#070b18; --bg1:#0b1124; --bg2:#101a36;
-    --card:rgba(255,255,255,.045); --card-brd:rgba(255,255,255,.09);
-    --text:#eef4ff; --muted:#9bb0d4; --muted2:#6c7fa5;
+    --accent:#ff5a5f; --accent2:#7c5cff;
+    --bg0:#0b0b0f; --bg1:#131318; --bg2:#1c1c22;
+    --card:rgba(255,255,255,.045); --card-brd:rgba(255,255,255,.1);
+    --text:#f5f5f7; --muted:#a1a1a6; --muted2:#86868b;
     --gold:#ffd166; --rose:#ff7a9c;
     --shadow:0 30px 80px rgba(0,0,0,.55);
   }
@@ -63,7 +63,7 @@
 
   /* ---------- tooltip ---------- */
   .tip{position:fixed; pointer-events:none; z-index:10; display:none;
-    background:rgba(10,16,34,.92); border:1px solid var(--card-brd); border-radius:12px;
+    background:rgba(20,20,26,.92); border:1px solid var(--card-brd); border-radius:12px;
     padding:8px 12px; font-size:12px; max-width:220px; box-shadow:var(--shadow);}
   .tip .tag{font-weight:800; font-size:10px; letter-spacing:.08em; text-transform:uppercase;}
   .tip .tag.exif{color:var(--accent);} .tip .tag.manual{color:var(--gold);}
@@ -179,17 +179,17 @@ function initGlobe(points){
     .globeImageUrl('//unpkg.com/three-globe@2.31.0/example/img/earth-night.jpg')
     .bumpImageUrl('//unpkg.com/three-globe@2.31.0/example/img/earth-topology.png')
     .backgroundColor('rgba(0,0,0,0)')
-    .atmosphereColor('#5eebd4')
+    .atmosphereColor('#7c5cff')
     .atmosphereAltitude(0.18)
     .pointsData(points)
     .pointLat('lat').pointLng('lng')
     .pointAltitude(0.012)
     .pointRadius(0.32)
-    .pointColor(d => d.source === 'exif' ? '#5eebd4' : '#ffd166')
+    .pointColor(d => d.source === 'exif' ? '#ff5a5f' : '#ffd166')
     .pointsMerge(false)
     .onPointHover(handleHover)
     .arcsData(arcs)
-    .arcColor(() => ['rgba(94,235,212,0.25)', 'rgba(115,140,255,0.5)'])
+    .arcColor(() => ['rgba(255,90,95,0.3)', 'rgba(124,92,255,0.55)'])
     .arcAltitudeAutoScale(0.35)
     .arcStroke(0.4)
     .arcDashLength(0.5).arcDashGap(0.25).arcDashAnimateTime(3500);

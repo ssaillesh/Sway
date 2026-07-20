@@ -9,6 +9,7 @@ import re
 
 from app.services import foursquare
 from app.services import geocoding
+from app.services import google_places
 from app.services import yelp
 from app.services.hotspots import fetch_hotspots
 from app.services import llm
@@ -284,6 +285,25 @@ def _gather(anchor, slot_key, price_pref, radius, dietary, term_override=None, c
                 c["popularity"] = f.get("popularity")
                 matched.add(_norm_name(c["name"]))
         cands.extend(f for n, f in by_name.items() if n not in matched)
+    # Google Maps: the widest real-world coverage of restaurants/activities.
+    # Query by the slot's term (or first category), merge non-duplicates into
+    # the pool and backfill ratings/photos on venues other sources found bare.
+    if google_places.available():
+        q = term or (categories or "").split(",")[0] or slot["label"]
+        goog = google_places.search(anchor[0], anchor[1], query=q, radius=radius, limit=15)
+        have = {_norm_name(c.get("name") or "") for c in cands}
+        for g in goog:
+            n = _norm_name(g["name"])
+            if n in have:
+                for c in cands:
+                    if _norm_name(c.get("name") or "") == n:
+                        c.setdefault("image", None)
+                        c["image"] = c["image"] or g.get("image")
+                        c["rating"] = c.get("rating") or g.get("rating")
+                        c["review_count"] = c.get("review_count") or g.get("review_count")
+                        break
+            else:
+                cands.append(g)
     if len(cands) < 5:
         for h in fetch_hotspots(slot["osm"], lat=anchor[0], lng=anchor[1], radius=radius):
             cands.append({"source": "osm", "name": h["name"], "lat": h["lat"], "lng": h["lng"],
@@ -333,15 +353,27 @@ def tag_for(c) -> tuple[str | None, str | None]:
     return (None, None)
 
 
-def _pick(cands, used, anchor, penalty, want_gem, vary=False, fancy=False, apply_fun=False, interests=""):
+def _pick(cands, used, anchor, penalty, want_gem, vary=False, fancy=False, apply_fun=False,
+          interests="", rng=random, explore=False):
     ranked = sorted(
         (c for c in cands if c.get("name") and c["name"].lower() not in used),
         key=lambda c: _score(c, anchor, penalty, want_gem, fancy, apply_fun, interests), reverse=True)
     if not ranked:
         return None
-    # On a "try another", pick from the strong top few for genuine variety.
+    # Surprise mode: a wide weighted draw tilted toward hidden gems — deliberately
+    # off the beaten path, but never the genuinely weak tail of the ranking.
+    if explore and len(ranked) > 1:
+        pool = ranked[:min(10, len(ranked))]
+        def gem_weight(c):
+            rc = c.get("review_count") or 0
+            return 1.8 if (c.get("rating") or 0) >= 4.2 and 0 < rc < 400 else 1.0
+        return rng.choices(pool, weights=[gem_weight(c) for c in pool], k=1)[0]
+    # On a "try another", draw rank-weighted from the strong top slice — better
+    # picks stay likelier, but the pool is wide enough that re-rolls really differ.
     if vary and len(ranked) > 1:
-        return random.choice(ranked[:min(4, len(ranked))])
+        pool = ranked[:min(6, len(ranked))]
+        weights = [1.0 / (i + 1) ** 0.7 for i in range(len(pool))]
+        return rng.choices(pool, weights=weights, k=1)[0]
     return ranked[0]
 
 
@@ -358,7 +390,11 @@ def _slots_for(vibe, time_of_day, group_type, length):
 def build_plan(*, lat, lng, budget, vibe=DEFAULT_VIBE, party_size=2, transport="any",
                time_of_day=None, group_type=None, dietary="", interests="", avoid="",
                radius=None, exclude=None, vary=False, target_stops=4,
-               requested_venues=None):
+               requested_venues=None, seed=None, surprise=False):
+    # A caller-supplied seed makes the draw reproducible; each new seed is a
+    # genuinely different roll. Surprise mode implies variety.
+    rng = random.Random(seed) if seed is not None else random
+    vary = vary or surprise
     vibe = vibe if vibe in VIBE_PLANS else DEFAULT_VIBE
     price_pref = VIBE_PLANS[vibe]["price"]
     tconf = TRANSPORT.get(transport, TRANSPORT["any"])
@@ -418,11 +454,13 @@ def build_plan(*, lat, lng, budget, vibe=DEFAULT_VIBE, party_size=2, transport="
         apply_fun = slot_key in ("activity", "leisure")
         cands = [c for c in _gather(search_from, slot_key, price_pref, r, dietary, term_override, cat_override)
                  if not avoid_match(c, avoid)]
-        pick = _pick(cands, used, search_from, tconf["penalty"], (i == gem_index), vary, fancy, apply_fun, interests)
+        pick = _pick(cands, used, search_from, tconf["penalty"], (i == gem_index), vary, fancy, apply_fun,
+                     interests, rng=rng, explore=surprise)
         if not pick and r < radius:
             cands = [c for c in _gather(search_from, slot_key, price_pref, radius, dietary, term_override, cat_override)
                      if not avoid_match(c, avoid)]
-            pick = _pick(cands, used, search_from, tconf["penalty"], (i == gem_index), vary, fancy, apply_fun, interests)
+            pick = _pick(cands, used, search_from, tconf["penalty"], (i == gem_index), vary, fancy, apply_fun,
+                         interests, rng=rng, explore=surprise)
         if not pick:
             continue
         used.add(pick["name"].lower())
@@ -510,12 +548,14 @@ def build_plan(*, lat, lng, budget, vibe=DEFAULT_VIBE, party_size=2, transport="
     return plan
 
 
-def build_trip(*, days, lat, lng, budget, **opts):
+def build_trip(*, days, lat, lng, budget, exclude=None, **opts):
     days = max(1, min(days, 5))
     per_day = budget / days
-    used, trip = set(), []
+    used, trip = set(exclude or ()), []
+    seed = opts.pop("seed", None)
     for d in range(days):
-        plan = build_plan(lat=lat, lng=lng, budget=per_day, exclude=used, **opts)
+        plan = build_plan(lat=lat, lng=lng, budget=per_day, exclude=used,
+                          seed=(seed + d if seed is not None else None), **opts)
         plan["day"] = d + 1
         for s in plan["stops"]:
             used.add(s["name"].lower())

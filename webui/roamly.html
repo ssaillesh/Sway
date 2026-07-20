@@ -5,30 +5,30 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>Roamly — your night, planned</title>
 <meta name="description" content="Tell me your budget and your vibe — I'll plan a real itinerary of places near you, from dinner to drinks to the dessert you didn't know you needed." />
-<meta name="theme-color" content="#fdf5ec" />
+<meta name="theme-color" content="#ffffff" />
 <link rel="preconnect" href="https://unpkg.com" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="/config.js"></script>
 <style>
   :root{
-    /* Roamly — vibrant playful (Gen-Z): warm cream base, coral→violet, lime pop */
+    /* Roamly — shared Apple-style system: white base, ink text, coral→violet brand */
     --accent:#ff5a5f; --accent2:#7c5cff; --lime:#b8f34a; --hot:#ff3d9a;
-    --bg0:#fdf5ec; --bg1:#ffffff; --bg2:#f1ebff;
-    --card:#ffffff; --card-2:#ffffff; --brd:rgba(36,22,51,.10); --hair:rgba(36,22,51,.07);
-    --text:#241633; --muted:#6f6382; --muted2:#a99fb8;
-    --shadow:0 20px 45px -16px rgba(124,92,255,.35);
+    --bg0:#ffffff; --bg1:#ffffff; --bg2:#f5f4f7;
+    --card:#ffffff; --card-2:#ffffff; --brd:rgba(0,0,0,.08); --hair:rgba(0,0,0,.06);
+    --text:#1d1d1f; --muted:#515154; --muted2:#86868b;
+    --shadow:0 20px 45px -16px rgba(60,40,120,.18);
     --ease:cubic-bezier(.22,1,.36,1);
     --pop:cubic-bezier(.34,1.56,.64,1);   /* springy overshoot for that bouncy feel */
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   html,body{margin:0; height:100%;}
   body{background:
-      radial-gradient(720px 480px at 88% -6%, rgba(124,92,255,.18), transparent 62%),
-      radial-gradient(680px 520px at 6% 8%, rgba(255,90,95,.16), transparent 58%),
-      radial-gradient(700px 600px at 50% 116%, rgba(184,243,74,.20), transparent 60%),
+      radial-gradient(720px 480px at 88% -6%, rgba(124,92,255,.08), transparent 62%),
+      radial-gradient(680px 520px at 6% 8%, rgba(255,90,95,.07), transparent 58%),
+      radial-gradient(700px 600px at 50% 116%, rgba(255,61,154,.06), transparent 60%),
       var(--bg0);
-    color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"SF Pro Rounded","Segoe UI",Inter,sans-serif;
+    color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","Segoe UI",Inter,sans-serif;
     -webkit-font-smoothing:antialiased; line-height:1.5; display:flex; flex-direction:column; height:100vh;}
   a{color:inherit; text-decoration:none;}
   .grad{background:linear-gradient(110deg,var(--accent),var(--accent2)); -webkit-background-clip:text; background-clip:text; color:transparent;}
@@ -122,7 +122,7 @@
   .stop-img{width:100%; height:140px; object-fit:cover; border-radius:16px; margin:9px 0 2px;
     background:var(--bg2); box-shadow:0 8px 20px -12px rgba(124,92,255,.45); display:block;}
   .stop .cost{margin-left:auto; font-weight:800; color:var(--text); font-size:14px; white-space:nowrap;}
-  .pill{font-size:11px; font-weight:700; padding:2px 8px; border-radius:999px; background:rgba(36,22,51,.06);}
+  .pill{font-size:11px; font-weight:700; padding:2px 8px; border-radius:999px; background:rgba(0,0,0,.05);}
   .pill.star{color:#c98a00; background:rgba(255,209,102,.12);}
   .stop .acts{display:flex; gap:8px; margin-top:9px;}
   .stop .acts a{font-size:12px; font-weight:700; padding:6px 11px; border-radius:999px; border:1px solid var(--brd);
@@ -136,7 +136,7 @@
   @keyframes bl{0%,60%,100%{opacity:.3; transform:translateY(0);} 30%{opacity:1; transform:translateY(-3px);}}
 
   .composer{border-top:1px solid var(--hair); padding:14px 16px calc(14px + env(safe-area-inset-bottom));
-    background:rgba(253,245,236,.86); backdrop-filter:blur(14px);}
+    background:rgba(255,255,255,.82); backdrop-filter:saturate(1.8) blur(20px);}
   .composer .row{max-width:720px; margin:0 auto; display:flex; gap:10px;}
   .composer input{flex:1; padding:14px 18px; border-radius:999px; border:1px solid var(--brd); background:var(--card);
     color:var(--text); font-size:15px; outline:none;}
@@ -160,7 +160,7 @@
   .save-chip:hover{border-color:var(--accent); color:var(--accent);}
   .save-chip.done{color:var(--accent); border-color:var(--accent); background:rgba(124,92,255,.1);}
 
-  .drawer-bg{position:fixed; inset:0; background:rgba(36,22,51,.4); backdrop-filter:blur(4px); z-index:40;}
+  .drawer-bg{position:fixed; inset:0; background:rgba(0,0,0,.4); backdrop-filter:blur(4px); z-index:40;}
   .drawer{position:fixed; top:0; right:0; bottom:0; width:min(380px,90vw); z-index:41; background:var(--bg1);
     border-left:1px solid var(--brd); box-shadow:var(--shadow); display:flex; flex-direction:column;
     transform:translateX(100%); transition:transform .35s var(--ease);}
@@ -178,9 +178,9 @@
   @media(max-width:560px){ .msg{max-width:96%;} .itin,.quick,.day-head{margin-left:0;} }
 
   /* ---------- Gen-Z polish: chunky · rounded · bouncy ---------- */
-  .logo{font-size:24px; font-weight:900; letter-spacing:-.03em;}
+  .logo{font-size:20px; font-weight:750; letter-spacing:-.02em;}
   .logo .m{filter:drop-shadow(0 2px 6px rgba(124,92,255,.4));}
-  header{border-bottom:0; background:rgba(253,245,236,.7);}
+  header{background:rgba(255,255,255,.72); backdrop-filter:saturate(1.8) blur(20px);}
   header .tag{font-weight:600;}
   .bubble{border-radius:22px; font-size:15.5px;}
   .msg.bot .bubble{border-top-left-radius:7px; box-shadow:0 8px 20px -12px rgba(124,92,255,.45);}
@@ -194,7 +194,7 @@
   .ocard:hover{transform:translateY(-4px) scale(1.02); border-color:var(--accent2);}
   .ocard:active{transform:scale(.98);}
   .ocard.sel{border-color:var(--accent); box-shadow:inset 0 0 0 3px var(--accent), 0 14px 30px -12px rgba(255,90,95,.5);}
-  .ocard .chk{border:2px solid rgba(36,22,51,.14);}
+  .ocard .chk{border:2px solid rgba(0,0,0,.12);}
   .ocard.sel .chk{border-color:transparent; background:var(--accent);}
   .ocard .tg{color:var(--text); box-shadow:0 4px 10px -4px rgba(0,0,0,.18);}
   .buildbtn{background:linear-gradient(120deg,var(--accent),var(--accent2)); box-shadow:0 14px 32px -8px rgba(255,90,95,.55);}
@@ -208,9 +208,9 @@
   /* ---------- questionnaire ---------- */
   .quiz{position:fixed; inset:0; z-index:60; overflow-y:auto; display:flex; align-items:center; justify-content:center;
     padding:30px 18px; background:
-      radial-gradient(700px 460px at 85% -6%, rgba(124,92,255,.22), transparent 60%),
-      radial-gradient(640px 520px at 8% 6%, rgba(255,90,95,.2), transparent 58%),
-      radial-gradient(760px 620px at 50% 118%, rgba(184,243,74,.24), transparent 60%),
+      radial-gradient(700px 460px at 85% -6%, rgba(124,92,255,.12), transparent 60%),
+      radial-gradient(640px 520px at 8% 6%, rgba(255,90,95,.1), transparent 58%),
+      radial-gradient(760px 620px at 50% 118%, rgba(255,61,154,.08), transparent 60%),
       var(--bg0);}
   .quiz-card{width:100%; max-width:560px;}
   .quiz .hi{font-size:13px; font-weight:800; letter-spacing:.16em; text-transform:uppercase; color:var(--accent); margin-bottom:8px;}
@@ -240,9 +240,10 @@
 </head>
 <body>
   <header>
-    <div class="logo"><span class="m">🧭</span><span class="grad">Roamly</span></div>
+    <a class="logo" href="/"><span class="m">🧭</span><span class="grad">Roamly</span></a>
     <span class="tag">your day, your call ✨</span>
-    <button class="saved-btn" id="savedBtn" title="Saved plans">💾 <span id="savedCount">0</span></button>
+    <a class="saved-btn" href="app.html" style="margin-left:auto; text-decoration:none; display:inline-flex; align-items:center;">🗺️ Map</a>
+    <button class="saved-btn" id="savedBtn" title="Saved plans" style="margin-left:0;">💾 <span id="savedCount">0</span></button>
     <div class="loc" id="locBadge"><span class="dot"></span><span id="locText">location off</span></div>
   </header>
 
@@ -265,11 +266,15 @@
 <script>
 const API = window.API_BASE;
 const $ = id => document.getElementById(id);
+// The planner is members-only: same account/token as the map app (app.html).
+const token = () => localStorage.getItem('trek_token');
+const authHeaders = () => token() ? { 'Authorization': 'Bearer ' + token() } : {};
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const thread = $('thread'), chat = $('chat');
 let messages = [];           // {role, content}
 let userLoc = null;
 let mapSeq = 0;
+const seenVenues = new Set();   // venues already suggested — sent as `exclude` so re-rolls never repeat
 
 /* ---------- location ---------- */
 function getLoc(){
@@ -287,7 +292,7 @@ function addMsg(role, html){
   const m = document.createElement('div');
   m.className = 'msg ' + (role==='user'?'me':'bot');
   m.innerHTML = `<div class="av">${role==='user'?'you':'🧭'}</div><div class="bubble">${html}</div>`;
-  thread.appendChild(m); scrollDown(); return m;
+  thread.appendChild(m); scrollDown(role==='user'); return m;
 }
 function addQuick(replies){
   if (!replies || !replies.length) return;
@@ -303,7 +308,32 @@ function typing(on){
     thread.appendChild(m); scrollDown(); }
   else if (!on && t) t.remove();
 }
-function scrollDown(){ requestAnimationFrame(()=> chat.scrollTop = chat.scrollHeight); }
+/* Sticky autoscroll: follow new messages only while the user is at the bottom,
+   so scrolling up to reread never gets yanked back down. */
+let stickBottom = true;
+chat.addEventListener('scroll', () => {
+  stickBottom = chat.scrollHeight - chat.scrollTop - chat.clientHeight < 140;
+});
+function scrollDown(force){
+  if (force) stickBottom = true;
+  if (stickBottom) requestAnimationFrame(()=> chat.scrollTop = chat.scrollHeight);
+}
+
+/* Streaming feel: type the assistant's reply in instead of dumping it at once. */
+function addMsgTyped(text){
+  const m = addMsg('assistant', '');
+  const b = m.querySelector('.bubble');
+  const chars = [...String(text)];
+  const step = Math.max(1, Math.round(chars.length / 70));   // ~1.1s regardless of length
+  let i = 0;
+  (function tick(){
+    i = Math.min(chars.length, i + step);
+    b.textContent = chars.slice(0, i).join('');
+    scrollDown();
+    if (i < chars.length) setTimeout(tick, 16);
+  })();
+  return m;
+}
 
 function stopHtml(s,i){
   const rating = s.rating ? `<span class="pill star">★ ${s.rating}</span>` : '';
@@ -345,6 +375,7 @@ function eventsHtml(events){
 }
 
 function appendPlanCard(plan, dayLabel){
+  plan.stops.forEach(s => seenVenues.add(s.name));   // never suggest these again
   const id = 'map'+(++mapSeq);
   const head = dayLabel ? `<div class="day-head">${esc(dayLabel)}</div>` : '';
   const html = `${head}<div class="itin">
@@ -374,6 +405,7 @@ function renderPlan(plan){
   appendFoot([
     { label:'💾 Save', cls:'save-chip', onclick:e=>saveCurrent(e.target) },
     { label:'🔄 Try another', onclick:()=>send('plan something different') },
+    { label:'🎲 Surprise me', onclick:()=>send('surprise me with something off the beaten path', null, {surprise:true}) },
     { label:'💵 Cheaper', onclick:()=>send('make it cheaper') },
     { label:'🥂 Fancier', onclick:()=>send('make it fancier') },
   ]);
@@ -481,7 +513,7 @@ function drawMap(id, plan){
   L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {maxZoom:19}).addTo(map);
   const pts = plan.stops.map(s=>[s.lat,s.lng]);
   plan.stops.forEach((s,i)=> L.marker([s.lat,s.lng], {icon:L.divIcon({className:'',html:`<div class="num-marker">${i+1}</div>`,iconSize:[26,26],iconAnchor:[13,13]})}).addTo(map));
-  if (pts.length>1) L.polyline(pts,{color:'#5eebd4',weight:2,opacity:.5,dashArray:'4 6'}).addTo(map);
+  if (pts.length>1) L.polyline(pts,{color:'#7c5cff',weight:2,opacity:.5,dashArray:'4 6'}).addTo(map);
   map.fitBounds(L.latLngBounds(pts).pad(0.35));
 }
 
@@ -563,7 +595,8 @@ async function buildItinerary(){
   const c = picker.ctx, loc = picker.loc;
   picker.bar.disabled = true; picker.bar.textContent = 'Building…';
   try{
-    const res = await fetch(`${API}/plan/build`, { method:'POST', headers:{'Content-Type':'application/json'},
+    const res = await fetch(`${API}/plan/build`, { method:'POST',
+      headers:{'Content-Type':'application/json', ...authHeaders()},
       body: JSON.stringify({ selections:sels, lat:loc.lat, lng:loc.lng, party_size:c.party_size||2,
         budget:c.budget||0, vibe:c.vibe||'romantic', interests:c.interests||'', group_type:c.group_type||null,
         time_of_day:c.time_of_day||null, dietary:c.dietary||'' }) }).then(r=>r.json());
@@ -575,10 +608,12 @@ async function buildItinerary(){
 
 async function fetchOptions(){
   try{
-    const res = await fetch(`${API}/plan/options`, {
-      method:'POST', headers:{'Content-Type':'application/json'},
+    const r = await fetch(`${API}/plan/options`, {
+      method:'POST', headers:{'Content-Type':'application/json', ...authHeaders()},
       body: JSON.stringify({ messages, lat:userLoc&&userLoc.lat, lng:userLoc&&userLoc.lng })
-    }).then(r=>r.json());
+    });
+    if (r.status === 401){ typing(false); requireSignIn(); return; }
+    const res = await r.json();
     typing(false);
     if (!res.ok){ addMsg('assistant', esc(res.message||'Turn on location or name a city, and I\'ll pull spots near you.')); return; }
     addMsg('assistant', "Here are the best spots near you 👇 tap the ones you're feeling, then build your itinerary. ✨");
@@ -586,17 +621,28 @@ async function fetchOptions(){
   }catch(e){ typing(false); addMsg('assistant','Hmm, I hit a snag reaching the planner. Try again?'); }
 }
 
-async function send(text, display){
+function requireSignIn(){
+  addMsg('assistant', "Roamly's planner is for members — create a free account or sign in (takes a minute) and I'll plan your whole day. 🧭");
+  appendFoot([{ label:'🔑 Sign in / create account', onclick:()=>location.href='app.html?signin=1' }]);
+}
+
+async function send(text, display, o={}){
   text = (text||'').trim(); if (!text) return;
+  if (!token()){ requireSignIn(); return; }
   $('input').value=''; addMsg('user', esc(display || text));
   messages.push({role:'user', content:text});
   typing(true); $('send').disabled=true;
   try{
-    const res = await fetch(`${API}/plan/chat`, { method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ messages, lat:userLoc&&userLoc.lat, lng:userLoc&&userLoc.lng }) }).then(r=>r.json());
+    const r = await fetch(`${API}/plan/chat`, { method:'POST',
+      headers:{'Content-Type':'application/json', ...authHeaders()},
+      body: JSON.stringify({ messages, lat:userLoc&&userLoc.lat, lng:userLoc&&userLoc.lng,
+        exclude:[...seenVenues], seed: Math.floor(Math.random()*1e9),
+        surprise: !!o.surprise }) });
+    if (r.status === 401){ typing(false); $('send').disabled=false; requireSignIn(); return; }
+    const res = await r.json();
     typing(false);
     const bot = res.message || '…';
-    addMsg('assistant', esc(bot)); messages.push({role:'assistant', content:bot});
+    addMsgTyped(bot); messages.push({role:'assistant', content:bot});
     if (res.type==='itinerary' && res.days && res.days.length) renderTrip(res.days, res.title);
     else if (res.type==='itinerary' && res.plan) renderPlan(res.plan);      // auto-generated, with images
     else addQuick(res.quick_replies);                                        // LLM's follow-up question
@@ -625,7 +671,7 @@ let wiz = { i:0, ans:{}, active:false, chipsEl:null };
 
 function startWizard(){
   addMsg('assistant', "Hey, I'm <b>Roamly</b> 🧭 — tell me what you're planning and I'll build it. A date night? A solo adventure? A day out with the crew? Just say the word (a budget helps too!).");
-  addQuick(['💘 Plan a date night','🧍 Solo adventure','🎉 Day out with friends','👨‍👩‍👧 Family day out']);
+  addQuick(['💘 Plan a date night','🧍 Solo adventure','🎉 Day out with friends','👨‍👩‍👧 Family day out','🎲 Surprise me']);
 }
 function askStep(){
   const step = WIZ[wiz.i];
@@ -658,7 +704,7 @@ function wizToPrompt(a){
 /* ---------- boot ---------- */
 getLoc();
 $('savedCount').textContent = getSaved().length;
-startWizard();
+if (token()) startWizard(); else requireSignIn();
 </script>
 </body>
 </html>

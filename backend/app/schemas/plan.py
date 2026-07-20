@@ -64,6 +64,12 @@ class ChatRequest(BaseModel):
     messages: list[ChatMessage]
     lat: float | None = None
     lng: float | None = None
+    # Randomizer controls: venue names already shown this session (never repeat),
+    # a client-chosen seed so each re-roll is a genuinely different draw, and an
+    # explicit surprise mode that samples adventurously instead of top-ranked.
+    exclude: list[str] = Field(default_factory=list)
+    seed: int | None = None
+    surprise: bool = False
 
 
 class ChatResponse(BaseModel):

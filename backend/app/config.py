@@ -83,6 +83,10 @@ class Settings(BaseSettings):
     # Ticketmaster Discovery (free: concerts, sports, comedy). Use the Consumer Key.
     ticketmaster_api_key: str = ""
 
+    # Google Places API (New) — lets the planner search Google Maps for
+    # restaurants/activities (ratings, prices, photos). Blank → Yelp/FSQ/OSM only.
+    google_places_api_key: str = ""
+
     # Rate limiting (requests per window per client)
     rate_limit_requests: int = 120
     rate_limit_window_seconds: int = 60
